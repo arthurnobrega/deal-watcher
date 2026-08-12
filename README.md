@@ -333,11 +333,26 @@ Effective: R$ 3.150,00
 
 ---
 
-## Mercado Livre
+## Mercado Livre (blocked)
 
-The one store here that is not scraped. Mercado Livre publishes a documented
-API, so this adapter asks for JSON: no interstitial, no browser, no layout to
-break. It needs credentials, which are free:
+The one store here that is not scraped — and, as of 2026-08, the one that does
+not work. Mercado Livre publishes a documented API, but an ordinary registered
+application is not granted the parts of it that a price monitor needs. Measured
+with a real app:
+
+| Endpoint | Result |
+| --- | --- |
+| `/sites/MLB/search` | `403 forbidden` — with a client_credentials **and** a user token |
+| `/products/search` | `200`, but catalogue entries carry no price |
+| `/products/{id}` | price lives in `buy_box_winner`, so one extra request per product |
+| `refresh_token` | never issued, even with `scope=offline_access` |
+
+The last one is fatal: access tokens last ~6 hours, so the store would die
+twice a day until re-authorised by hand. The adapter and its tests are kept
+because they are correct for an application that holds those grants — if you
+get one approved, enable the store. Otherwise leave it off.
+
+The setup below applies once you have an approved app:
 
 1. Register an application at
    [developers.mercadolivre.com.br](https://developers.mercadolivre.com.br/).

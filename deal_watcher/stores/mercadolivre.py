@@ -5,6 +5,24 @@ a documented API, so deal-watcher asks it for JSON instead of guessing at
 markup. That makes this the sturdiest adapter in the project -- no interstitial,
 no layout changes, no browser -- at the cost of needing credentials.
 
+STATUS: blocked, and shipped disabled. Measured on 2026-08-12 with a real
+registered application:
+
+* ``/sites/MLB/search`` returns 403 "forbidden" for both a client_credentials
+  token and a user-context token. Site search is an app-level authorisation
+  Mercado Livre grants selectively; no OAuth flow works around it.
+* ``/products/search`` returns 200 with a user token, but catalogue entries
+  carry no price -- that needs a second request per product to read the
+  ``buy_box_winner`` on the product detail.
+* The authorization_code exchange returns no refresh token, even when the
+  request asks for ``scope=offline_access``. Access tokens last about six
+  hours, so without one this store would go dead twice a day until someone
+  re-authorised it by hand.
+
+The code below is kept because it is correct for an application that *has*
+those grants, and the first two findings may change if Mercado Livre approves
+an app. Until then, leave the store disabled.
+
 Two environment variables are required, from a free application registered at
 https://developers.mercadolivre.com.br/:
 
@@ -49,9 +67,9 @@ class MercadoLivreAdapter(StoreAdapter):
     slug = "mercadolivre"
     display_name = "Mercado Livre"
     notes = (
-        "Official API, no scraping. Needs MERCADOLIVRE_CLIENT_ID and "
-        "MERCADOLIVRE_CLIENT_SECRET from a free developer app. Marketplace listings vary in "
-        "quality, so keep match rules strict."
+        "BLOCKED, ships disabled: site search returns 403 for unapproved apps, and no refresh "
+        "token is issued, so tokens die every ~6h. Kept for if Mercado Livre ever approves an "
+        "app. See the module docstring for the measurements."
     )
 
     api_base = "https://api.mercadolibre.com"
