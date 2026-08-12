@@ -5,13 +5,17 @@
 #
 #   ./deploy/mercadolivre-authcode.sh
 #
-# Background: with a client_credentials token, /sites/MLB/search returns 403
-# "forbidden" -- authenticated, but the app is not authorised for catalogue
-# search. This runs the authorization_code flow instead, which carries the
-# logged-in user's context, and probes the same endpoint.
+# Background, measured rather than assumed:
 #
-# It saves nothing unless the probe succeeds, so a failed experiment leaves no
-# half-configured store behind.
+#   /sites/MLB/search   403 with both a client_credentials and a user token
+#                       -- app-level authorisation, not a token problem
+#   /products/search    200 with a user token   <- the way in
+#   /users/me           200 with a user token
+#
+# So deal-watcher reads the *catalogue* endpoint, not site search. This script
+# runs the authorization_code flow, saves the refresh token (access tokens
+# last ~6h, refresh tokens ~6 months, so the adapter renews itself), and dumps
+# a sample response so the adapter can be written against real data.
 set -euo pipefail
 
 ENV_FILE="$HOME/.config/deal-watcher/deal-watcher.env"
@@ -61,29 +65,32 @@ if [[ -z "$TOKEN" ]]; then
 fi
 echo "    got a user token${REFRESH:+ and a refresh token}"
 
-echo "==> probing the endpoints that matter"
-FAIL=0
-for path in \
-  "/sites/MLB/search?q=rtx%205070&limit=1" \
-  "/products/search?status=active&site_id=MLB&q=rtx%205070" \
-  "/users/me"
-do
-  STATUS=$(curl -sS -o /tmp/ml-auth.$$ -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "${API}${path}")
-  DETAIL=$(grep -oP '"(message|error)"\s*:\s*"\K[^"]{0,70}' /tmp/ml-auth.$$ | head -1 || true)
-  printf '    %-3s %s %s\n' "$STATUS" "${path%%\?*}" "${DETAIL:+-- $DETAIL}"
-  [[ "$path" == "/sites/MLB/search"* && "$STATUS" != "200" ]] && FAIL=1
-  rm -f /tmp/ml-auth.$$
-done
+SAMPLE="$HOME/.cache/deal-watcher-ml-probe.json"
+mkdir -p "$(dirname "$SAMPLE")"
 
-if [[ $FAIL -eq 1 ]]; then
-  cat >&2 <<'EOF'
+echo "==> probing the catalogue endpoint"
+STATUS=$(curl -sS -o "$SAMPLE" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+  "${API}/products/search?status=active&site_id=MLB&q=rtx%205070")
+echo "    $STATUS /products/search"
 
-==> Catalogue search is closed to this app even with a user token.
-    That is an authorisation Mercado Livre grants per application, not
-    something another OAuth flow gets around. Nothing was saved.
-EOF
+if [[ "$STATUS" != "200" ]]; then
+  echo "    catalogue search is closed to this app too. Nothing saved." >&2
+  grep -oP '"(message|error)"\s*:\s*"\K[^"]{0,90}' "$SAMPLE" >&2 || true
+  rm -f "$SAMPLE"
   exit 1
 fi
+
+# A catalogue product is not an offer: the price lives on the product detail,
+# in its buy-box winner. Capture one so the adapter is written against fact.
+PRODUCT_ID=$(grep -oP '"id"\s*:\s*"\KMLB\d+' "$SAMPLE" | head -1 || true)
+if [[ -n "$PRODUCT_ID" ]]; then
+  echo "==> fetching product detail for $PRODUCT_ID"
+  curl -sS -o "${SAMPLE%.json}-detail.json" -H "Authorization: Bearer $TOKEN" \
+    "${API}/products/${PRODUCT_ID}"
+  echo "    saved ${SAMPLE%.json}-detail.json"
+fi
+chmod 600 "$SAMPLE" "${SAMPLE%.json}-detail.json" 2>/dev/null || true
+echo "==> sample responses saved for adapter work (no credentials in them)"
 
 umask 077
 touch "$ENV_FILE"
@@ -98,5 +105,7 @@ rm -f "$ENV_FILE.tmp"
 chmod 600 "$ENV_FILE"
 unset ML_ID ML_SECRET ML_CODE TOKEN REFRESH RESP
 
-echo "==> search works. Saved credentials to $ENV_FILE"
-echo "    Tell me, and I will switch the adapter to the refresh-token flow."
+echo "==> saved credentials to $ENV_FILE (0600)"
+echo
+echo "Catalogue search works. Tell me and I will point the adapter at"
+echo "/products/search and wire up the refresh-token flow."
