@@ -20,7 +20,7 @@ from .models import Alert, ProductOffer, StoreResult
 from .notifiers.base import Notifier, NotifierError
 from .prices import format_brl
 from .storage import RunStats, Storage
-from .stores import get_adapter
+from .stores import StoreAdapter, get_adapter
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +74,11 @@ class Monitor:
         self.storage = storage
         self.notifiers = notifiers
         self.fetchers = fetchers or FetcherFactory(config.http, config.browser)
+        # One adapter instance per store, reused for every product. Rebuilding
+        # them per product threw away each adapter's sitemap cache, so a
+        # 9-product cycle refetched the same sitemap nine times -- through a
+        # browser, for the stores that need one.
+        self._adapters: dict[str, StoreAdapter] = {}
 
     def run_cycle(self, dry_run: bool = False) -> CycleReport:
         """One full pass over every product and store."""
@@ -134,7 +139,7 @@ class Monitor:
     def _query_store(self, slug: str, product: ProductConfig) -> StoreResult:
         store_config = self.config.store_config(slug)
         try:
-            adapter = get_adapter(slug)
+            adapter = self._adapter(slug)
         except KeyError as exc:
             return StoreResult(store=slug, error=str(exc))
         return adapter.search(
@@ -144,6 +149,11 @@ class Monitor:
             max_results=store_config.max_results,
             min_results=store_config.min_results,
         )
+
+    def _adapter(self, slug: str) -> StoreAdapter:
+        if slug not in self._adapters:
+            self._adapters[slug] = get_adapter(slug)
+        return self._adapters[slug]
 
     @staticmethod
     def _track_best(offer: ProductOffer, report: CycleReport) -> None:
@@ -220,5 +230,8 @@ class Monitor:
 
     def close(self) -> None:
         self.fetchers.close()
+        for adapter in self._adapters.values():
+            adapter.close()
+        self._adapters.clear()
         for notifier in self.notifiers:
             notifier.close()

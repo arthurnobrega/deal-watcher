@@ -101,6 +101,9 @@ class StoreAdapter(ABC):
         page = fetchers.get(kind).fetch(self.search_url(query), self.browser_hints)
         return self.parse(page)
 
+    def close(self) -> None:  # noqa: B027 - optional hook; most adapters hold nothing
+        """Release anything the adapter holds open."""
+
     @staticmethod
     def encode(query: str) -> str:
         return quote(query, safe="")

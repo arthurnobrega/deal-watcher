@@ -333,6 +333,25 @@ Effective: R$ 3.150,00
 
 ---
 
+## Mercado Livre
+
+The one store here that is not scraped. Mercado Livre publishes a documented
+API, so this adapter asks for JSON: no interstitial, no browser, no layout to
+break. It needs credentials, which are free:
+
+1. Register an application at
+   [developers.mercadolivre.com.br](https://developers.mercadolivre.com.br/)
+2. Put the client id and secret in your env file (never in config, never in git)
+3. Set `stores.mercadolivre.enabled: true`
+
+Worth knowing before you rely on it: it is a *marketplace*. Titles are written
+by sellers rather than manufacturers, and one search returns new, used,
+imported and grey-market listings together. The adapter drops anything not
+listed as `new` and anything out of stock, but the real defence is still your
+`match` rules — keep `reject_any` strict for anything watched here.
+
+---
+
 ## Adding a store
 
 One file, one import, one config block.
@@ -548,6 +567,8 @@ and a store is only worth this if its prices actually compete. Check with
 | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | yes, if Telegram is enabled | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | yes, if Telegram is enabled | Where to send messages |
+| `MERCADOLIVRE_CLIENT_ID` | only for the Mercado Livre store | Free developer app credentials |
+| `MERCADOLIVRE_CLIENT_SECRET` | only for the Mercado Livre store | Exchanged for a short-lived token |
 | `DEAL_WATCHER_CONFIG` | no | Config path, if not `./config.yaml` |
 | `PLAYWRIGHT_BROWSERS_PATH` | no | Where Chromium lives (set by the installer) |
 
