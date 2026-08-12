@@ -3,7 +3,10 @@
 # No secrets live here. The Telegram token and chat id are read from the
 # environment variables named under `notifiers.telegram`.
 
-interval_seconds: 900          # 15 minutes
+# A full pass over 9 products now takes ~11 minutes, because two of the three
+# stores cost one page load per candidate. Thirty minutes keeps the machine
+# mostly idle; drop it back to 900 if you trim the watchlist.
+interval_seconds: 1800         # 30 minutes
 health_max_age_seconds: 3600   # `health` fails if no cycle finished in an hour
 database: data/deal-watcher.db
 log_level: INFO
@@ -68,7 +71,7 @@ products:
     queries:
       kabum: "rtx 5060 ti 16gb"
       terabyte: "placa-de-video rtx 5060 ti 16gb"
-      pichau: "placa-de-video rtx-5060-ti-16gb"
+      pichau: "placa-de-video rtx-5060-ti-16gb-gddr7"
 
     # Matching rules. Patterns run against a lowercased, accent-stripped name.
     # The bias is deliberate: miss a deal rather than announce the wrong card.
@@ -83,3 +86,143 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado|refurbished|vitrine"
         - "pc gamer|computador|desktop|workstation|notebook|kit upgrade"
         - "suporte|cabo|adaptador|riser|water ?cooler|bracket|espelho"
+
+  # ── PC build watchlist ────────────────────────────────────────────────
+  # Targets are the Pix prices seen on 2026-08-12, so an alert means "at or
+  # better than what you already found". Queries carry the model code where
+  # one exists: sitemap stores match these tokens against the product URL, so
+  # a precise query is the difference between 2 page loads and 20.
+
+  - name: "CPU Intel Core Ultra 5 245KF"
+    max_price: 729.99
+    alert_levels: { good: 729.99, excellent: 690, buy_now: 650 }
+    queries:
+      kabum: "core ultra 5 245kf"
+      terabyte: "processador 245kf"
+      pichau: "processador 245kf"
+    match:
+      require_all:
+        - "core\\s*ultra\\s*5"
+        - "245\\s*kf"
+      reject_any:
+        - "usado|semi ?novo|open ?box|recondicionado|vitrine"
+        - "pc gamer|computador|notebook|kit upgrade"
+
+  - name: "Cooler Thermalright Assassin Spirit 120 EVO ARGB"
+    max_price: 159.99
+    alert_levels: { good: 159.99, excellent: 145, buy_now: 130 }
+    queries:
+      kabum: "thermalright assassin spirit 120 evo argb"
+      terabyte: "assassin spirit 120 evo"
+      pichau: "assassin spirit 120 evo"
+    match:
+      require_all:
+        - "assassin\\s*spirit\\s*120"
+        - "evo"
+        - "argb"
+      reject_any:
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|kit upgrade"
+
+  - name: "Placa-mãe Gigabyte B860 Eagle WIFI6E"
+    max_price: 1389.99
+    alert_levels: { good: 1389.99, excellent: 1300, buy_now: 1200 }
+    queries:
+      kabum: "gigabyte b860 eagle wifi6e"
+      terabyte: "b860 eagle"
+      pichau: "b860 eagle"
+    match:
+      require_all:
+        - "b860"
+        - "eagle"
+        - "wifi\\s*6e"
+      reject_any:
+        # B860M is the micro-ATX board, a different product with a similar name.
+        - "b860m"
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|kit upgrade"
+
+  - name: "Memória Kingston Fury Beast 32GB DDR5 6000 C30"
+    max_price: 4599.99
+    alert_levels: { good: 4599.99, excellent: 4300, buy_now: 4000 }
+    queries:
+      kabum: "kingston fury beast 32gb ddr5 6000 c30"
+      terabyte: "kf560c30bwek2"
+      pichau: "kf560c30bwek2"
+    match:
+      required_memory_gb: 32
+      require_all:
+        - "fury\\s*beast"
+        - "ddr5"
+        - "6000"
+      reject_any:
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|notebook|kit upgrade"
+
+  - name: "GPU MSI RTX 5070 Shadow 2X OC 12GB"
+    max_price: 4599.99
+    alert_levels: { good: 4599.99, excellent: 4300, buy_now: 4000 }
+    queries:
+      kabum: "msi rtx 5070 shadow 2x oc 12gb"
+      terabyte: "g5070-12s2c"
+      pichau: "g5070-12s2c"
+    match:
+      required_memory_gb: 12
+      require_all:
+        - "rtx\\s*5070"
+        - "shadow"
+      reject_any:
+        # The 5070 Ti is a different, pricier card that shares the prefix.
+        - "rtx\\s*5070\\s*ti"
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|notebook|kit upgrade"
+        - "suporte|cabo|adaptador|riser"
+
+  - name: "SSD Lexar NM790 1TB"
+    max_price: 1299.99
+    alert_levels: { good: 1299.99, excellent: 1200, buy_now: 1100 }
+    queries:
+      kabum: "ssd lexar nm790 1tb"
+      terabyte: "nm790 1tb"
+      pichau: "nm790 1tb"
+    match:
+      require_all:
+        - "nm790"
+        - "1\\s*tb"
+      reject_any:
+        # Same family, different capacities.
+        - "\\b(2|4)\\s*tb\\b"
+        - "nv790"
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|notebook"
+
+  - name: "Gabinete Corsair 3000D Airflow"
+    max_price: 439.99
+    alert_levels: { good: 439.99, excellent: 400, buy_now: 360 }
+    queries:
+      kabum: "gabinete corsair 3000d airflow"
+      terabyte: "gabinete 3000d airflow"
+      pichau: "gabinete 3000d airflow"
+    match:
+      require_all:
+        - "3000d"
+        - "airflow"
+      reject_any:
+        # The RGB edition is a different SKU at a different price.
+        - "\\brgb\\b"
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador"
+
+  - name: "Fonte Corsair RM750e 750W"
+    max_price: 649.99
+    alert_levels: { good: 649.99, excellent: 600, buy_now: 550 }
+    queries:
+      kabum: "fonte corsair rm750e 750w"
+      terabyte: "fonte rm750e"
+      pichau: "fonte rm750e"
+    match:
+      require_all:
+        - "rm750e"
+      reject_any:
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador"

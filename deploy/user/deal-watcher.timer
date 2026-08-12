@@ -1,10 +1,10 @@
 [Unit]
-Description=Run deal-watcher every 15 minutes (user session)
+Description=Run deal-watcher every 30 minutes (user session)
 Documentation=https://github.com/arthurnobrega/deal-watcher
 
 [Timer]
 OnStartupSec=3min
-OnUnitActiveSec=15min
+OnUnitActiveSec=30min
 
 # A desktop is not a server: it sleeps, reboots, and travels. Persistent=true
 # runs the check once after a gap instead of pretending the gap did not happen.
