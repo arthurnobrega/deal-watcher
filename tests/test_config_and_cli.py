@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -30,10 +29,23 @@ class TestShippedConfig:
     def test_the_rtx_target_is_configured_not_hardcoded(self) -> None:
         product = load_config(SHIPPED_CONFIG).products[0]
         assert product.name == "RTX 5060 Ti 16GB"
-        assert product.max_price == Decimal("3300")
-        assert product.alert_levels.good == Decimal("3300")
-        assert product.alert_levels.excellent == Decimal("3200")
-        assert product.alert_levels.buy_now == Decimal("3000")
+        assert product.max_price > 0
+
+    def test_shipped_alert_levels_are_coherent(self) -> None:
+        """Levels must get stricter, and none may sit above the target.
+
+        Deliberately asserts the *shape*, not the numbers: a test that repeats
+        the prices it guards breaks every time you tune one, which teaches you
+        to ignore it. The failure this catches is real -- a `good` ceiling
+        below `max_price` leaves a band where an offer beats the target and
+        still alerts nobody.
+        """
+        product = load_config(SHIPPED_CONFIG).products[0]
+        levels = product.alert_levels
+        assert levels.good is not None
+        assert levels.good == product.max_price, "target and good ceiling must agree"
+        assert levels.excellent is not None and levels.excellent < levels.good
+        assert levels.buy_now is not None and levels.buy_now < levels.excellent
 
     def test_its_match_rules_work_on_a_real_store_page(self) -> None:
         product = load_config(SHIPPED_CONFIG).products[0]

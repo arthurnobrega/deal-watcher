@@ -56,9 +56,9 @@ products:
 
     # Alert levels, best to worst. `good` defaults to max_price.
     alert_levels:
-      good: 3300       # 🟢 GOOD DEAL
-      excellent: 3200  # 🔥 EXCELLENT
-      buy_now: 3000    # 🚨 BUY NOW
+      good: 4000       # 🟢 GOOD DEAL
+      excellent: 3700  # 🔥 EXCELLENT
+      buy_now: 3400    # 🚨 BUY NOW
 
     # Search term per store. Pichau narrows sitemap URLs by these tokens, so a
     # more specific term there means far fewer product pages to fetch.
