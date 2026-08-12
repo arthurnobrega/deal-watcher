@@ -35,7 +35,7 @@ cat <<EOF
 
 ==> Open this in your browser and approve:
 
-${AUTH_HOST}/authorization?response_type=code&client_id=${ML_ID}&redirect_uri=${ENCODED}
+${AUTH_HOST}/authorization?response_type=code&client_id=${ML_ID}&redirect_uri=${ENCODED}&scope=offline_access+read
 
 You will land on your redirect URI with ?code=TG-xxxxx in the address bar.
 The page itself does not matter -- only the code in the URL.
@@ -63,7 +63,19 @@ if [[ -z "$TOKEN" ]]; then
   echo "(codes are single-use and expire in ~10 minutes -- re-run to get a fresh one)" >&2
   exit 1
 fi
-echo "    got a user token${REFRESH:+ and a refresh token}"
+if [[ -z "$REFRESH" ]]; then
+  cat >&2 <<'EOF'
+    Got an access token but NO refresh token, so it would expire in ~6 hours
+    and leave the store dead until you re-authorised by hand.
+
+    Mercado Livre only issues one when the authorization request asks for
+    offline_access -- which this script now does. If you are seeing this, the
+    app itself is not permitted to use it: check the application settings for
+    an offline access option and re-run. Nothing was saved.
+EOF
+  exit 1
+fi
+echo "    got a user token and a refresh token"
 
 SAMPLE="$HOME/.cache/deal-watcher-ml-probe.json"
 mkdir -p "$(dirname "$SAMPLE")"
@@ -81,14 +93,28 @@ if [[ "$STATUS" != "200" ]]; then
 fi
 
 # A catalogue product is not an offer: the price lives on the product detail,
-# in its buy-box winner. Capture one so the adapter is written against fact.
-PRODUCT_ID=$(grep -oP '"id"\s*:\s*"\KMLB\d+' "$SAMPLE" | head -1 || true)
-if [[ -n "$PRODUCT_ID" ]]; then
-  echo "==> fetching product detail for $PRODUCT_ID"
-  curl -sS -o "${SAMPLE%.json}-detail.json" -H "Authorization: Bearer $TOKEN" \
-    "${API}/products/${PRODUCT_ID}"
-  echo "    saved ${SAMPLE%.json}-detail.json"
-fi
+# in its buy-box winner. The first search hit is often a seller-invented
+# "COMMUNITY" entry with no offers at all, so capture several real ones.
+echo "==> capturing product details for adapter work"
+python3 - "$SAMPLE" "$TOKEN" "$API" <<'PY'
+import json, sys, urllib.request
+
+sample_path, token, api = sys.argv[1:4]
+results = json.load(open(sample_path)).get("results", [])
+out = []
+for item in results[:6]:
+    url = f"{api}/products/{item['id']}"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as response:
+            out.append(json.load(response))
+    except Exception as exc:  # noqa: BLE001 - a probe, not production
+        out.append({"id": item["id"], "error": str(exc)})
+path = sample_path.replace(".json", "-detail.json")
+json.dump(out, open(path, "w"), ensure_ascii=False)
+priced = sum(1 for d in out if isinstance(d.get("buy_box_winner"), dict))
+print(f"    {len(out)} products captured, {priced} with a buy-box price")
+PY
 chmod 600 "$SAMPLE" "${SAMPLE%.json}-detail.json" 2>/dev/null || true
 echo "==> sample responses saved for adapter work (no credentials in them)"
 
