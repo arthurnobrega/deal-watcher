@@ -75,40 +75,64 @@ class TestKabum:
 
 
 class TestTerabyte:
-    def test_search_url_uses_an_allowed_category_path(self) -> None:
-        url = TerabyteAdapter().search_url("rtx 5060 ti")
-        assert url == "https://www.terabyteshop.com.br/hardware/placas-de-video"
-        assert "?" not in url
+    """Read via sitemap + product pages: its listing route is disallowed and truncated."""
 
-    def test_picks_a_category_from_the_query(self) -> None:
+    def test_it_uses_the_robots_allowed_sitemap(self) -> None:
         adapter = TerabyteAdapter()
-        assert "processadores" in adapter.search_url("ryzen 7 9800X3D")
-        assert "memorias" in adapter.search_url("32GB DDR5 6000")
-        assert "ssd" in adapter.search_url("SSD NVMe 2TB")
+        assert adapter.sitemap_url == "https://www.terabyteshop.com.br/sitemap-manus.xml"
+        # robots.txt says `Disallow: /busca`, so search must never be used.
+        assert "busca" not in adapter.sitemap_url
 
-    def test_parses_real_cards(self) -> None:
-        offers = TerabyteAdapter().parse(fixture("terabyte_search.html"))
-        assert offers
-        for offer in offers:
-            assert offer.store == "TerabyteShop"
-            assert offer.price > Decimal("100")
-            assert offer.url.startswith("https://www.terabyteshop.com.br/produto/")
-            assert offer.raw_id and offer.raw_id.isdigit()
+    def test_only_product_urls_are_considered(self) -> None:
+        sitemap = (
+            "<urlset>"
+            "<url><loc>https://www.terabyteshop.com.br/produto/1/placa-de-video-rtx-5060-ti-16gb</loc></url>"
+            "<url><loc>https://www.terabyteshop.com.br/hardware/placas-de-video</loc></url>"
+            "<url><loc>https://www.terabyteshop.com.br/blog/rtx-5060-ti-16gb-review</loc></url>"
+            "</urlset>"
+        )
+        fetcher = FakeFetcher({"sitemap-manus": sitemap})
+        urls = TerabyteAdapter().sitemap_urls(FakeFetcherFactory(fetcher))
+        assert len(urls) == 1
+        assert "/produto/" in urls[0]
 
-    def test_sold_out_cards_are_dropped_rather_than_priced_at_zero(self) -> None:
-        offers = TerabyteAdapter().parse(fixture("terabyte_search.html"))
-        # The fixture contains one "Todos vendidos" card with no price box.
-        assert all(offer.available for offer in offers)
-        assert "3060 Ti" not in " ".join(offer.name for offer in offers)
+    def test_reads_price_and_stock_from_json_ld(self) -> None:
+        offer = TerabyteAdapter().parse_product(fixture("terabyte_product.html"))
+        assert offer is not None
+        assert offer.store == "TerabyteShop"
+        assert offer.price == Decimal("3899.99")
+        assert offer.currency == "BRL"
+        assert offer.available is True
+        assert offer.url.startswith("https://www.terabyteshop.com.br/produto/")
 
-    def test_reads_the_discounted_price_not_the_struck_through_one(self) -> None:
-        offers = TerabyteAdapter().parse(fixture("terabyte_search.html"))
-        shadow = next(offer for offer in offers if "Shadow" in offer.name)
-        assert shadow.price == Decimal("2349.99")  # "por:", not the "De:" price
+    def test_the_store_suffix_is_stripped_from_the_title(self) -> None:
+        # Titles arrive as "GPU Palit RTX 5060 Ti Infinity 3 16GB | Terabyte".
+        offer = TerabyteAdapter().parse_product(fixture("terabyte_product.html"))
+        assert offer is not None
+        assert "|" not in offer.name
+        assert not offer.name.endswith("Terabyte")
+        assert "5060 Ti" in offer.name
+
+    def test_product_id_is_the_numeric_id_not_the_brand(self) -> None:
+        # Terabyte puts the manufacturer in `sku`, which would collapse every
+        # Palit card onto one history key.
+        offer = TerabyteAdapter().parse_product(fixture("terabyte_product.html"))
+        assert offer is not None
+        assert offer.raw_id is not None and offer.raw_id.isdigit()
+
+    def test_the_real_fixture_matches_the_shipped_rules(self, rtx_match_rules) -> None:
+        offer = TerabyteAdapter().parse_product(fixture("terabyte_product.html"))
+        assert offer is not None
+        assert match_offer(offer, rtx_match_rules)
+
+    def test_out_of_stock_is_read_correctly(self) -> None:
+        page = fixture("terabyte_product.html").replace("InStock", "OutOfStock")
+        offer = TerabyteAdapter().parse_product(page)
+        assert offer is not None and offer.available is False
 
     def test_a_challenge_page_is_a_parse_error(self) -> None:
-        with pytest.raises(ParseError, match="no product cards"):
-            TerabyteAdapter().parse("<html><title>Just a moment...</title></html>")
+        with pytest.raises(ParseError, match=r"schema\.org/Product"):
+            TerabyteAdapter().parse_product("<html><title>Just a moment...</title></html>")
 
 
 class TestPichau:

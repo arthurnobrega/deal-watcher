@@ -30,9 +30,11 @@ class FakeFetcher:
     def __init__(self, pages: dict[str, str | Exception]) -> None:
         self.pages = pages
         self.requested: list[str] = []
+        self.hints: list[object | None] = []
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str, hints: object | None = None) -> str:
         self.requested.append(url)
+        self.hints.append(hints)
         for pattern, result in self.pages.items():
             if pattern in url:
                 if isinstance(result, Exception):

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
 from urllib.parse import quote
 
 from ..fetchers import FetcherFactory, FetchError
@@ -35,6 +36,9 @@ class StoreAdapter(ABC):
     display_name: str
     #: Documented for operators: what this store needs to be readable.
     notes: str = ""
+    #: Optional instructions for the browser transport, e.g. a "load more"
+    #: selector. Ignored by the plain HTTP transport.
+    browser_hints: ClassVar[dict[str, object] | None] = None
 
     @abstractmethod
     def search_url(self, query: str) -> str:
@@ -94,7 +98,7 @@ class StoreAdapter(ABC):
 
         Override for stores that need a different request pattern.
         """
-        page = fetchers.get(kind).fetch(self.search_url(query))
+        page = fetchers.get(kind).fetch(self.search_url(query), self.browser_hints)
         return self.parse(page)
 
     @staticmethod

@@ -196,7 +196,14 @@ class TestNoSpam:
 class TestResilience:
     def test_one_broken_store_does_not_stop_the_others(self, tmp_path: Path, rtx_product) -> None:
         config = Config(
-            products=(rtx_product.model_copy(update={"queries": {}, "stores": ()}),),
+            products=(
+                rtx_product.model_copy(
+                    update={
+                        "queries": {"terabyte": "placa-de-video rtx 5060 ti 16gb"},
+                        "stores": (),
+                    }
+                ),
+            ),
             stores={  # type: ignore[arg-type]
                 "kabum": {"enabled": True, "fetcher": "http"},
                 "terabyte": {"enabled": True, "fetcher": "http"},
@@ -209,7 +216,11 @@ class TestResilience:
         fetcher = FakeFetcher(
             {
                 "kabum.com.br": kabum_page([item(price=3199.0)]),
-                "terabyteshop": fixture("terabyte_search.html"),
+                "sitemap-manus": (
+                    "<urlset><url><loc>https://www.terabyteshop.com.br/produto/1/"
+                    "placa-de-video-rtx-5060-ti-16gb</loc></url></urlset>"
+                ),
+                "terabyteshop.com.br/produto": fixture("terabyte_product.html"),
                 "pichau": FetchError("HTTP 403"),  # store is angry today
             }
         )

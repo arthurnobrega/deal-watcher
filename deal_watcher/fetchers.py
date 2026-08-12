@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Mapping
 from typing import Any, Protocol
 
 import httpx
@@ -36,10 +37,15 @@ class FetchError(RuntimeError):
     """A page could not be retrieved. Carries no response body, only a reason."""
 
 
+#: Optional per-store instructions for the browser transport. Store-specific
+#: knowledge stays in the adapter; the mechanics stay here.
+BrowserHints = Mapping[str, Any]
+
+
 class Fetcher(Protocol):
     """Anything that can turn a URL into page text."""
 
-    def fetch(self, url: str) -> str: ...
+    def fetch(self, url: str, hints: BrowserHints | None = None) -> str: ...
 
     def close(self) -> None: ...
 
@@ -67,7 +73,8 @@ class HttpFetcher:
             time.sleep(remaining)
         self._last_request_at = time.monotonic()
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str, hints: BrowserHints | None = None) -> str:
+        del hints  # plain HTTP cannot click anything
         last_error: Exception | None = None
         for attempt in range(self._config.retries + 1):
             if attempt:
@@ -129,7 +136,7 @@ class BrowserFetcher:
             raise FetchError(f"could not start headless browser: {exc}") from exc
         return self._browser
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str, hints: BrowserHints | None = None) -> str:
         browser = self._ensure_browser()
         timeout_ms = int(self._config.timeout_seconds * 1000)
         context = None
@@ -144,6 +151,8 @@ class BrowserFetcher:
             if self._config.wait_after_load_seconds:
                 page.wait_for_timeout(int(self._config.wait_after_load_seconds * 1000))
             self._scroll_to_bottom(page)
+            if hints:
+                self._click_until_exhausted(page, hints)
             return str(page.content())
         except FetchError:
             raise
@@ -168,16 +177,77 @@ class BrowserFetcher:
             return
         pause_ms = int(self._config.scroll_pause_seconds * 1000)
         previous_height = 0
+        stable = 0
         for _ in range(self._config.scroll_passes):
             try:
                 height = int(page.evaluate("document.body.scrollHeight") or 0)
                 if height and height == previous_height:
-                    return  # nothing new loaded; we have the whole list
+                    # Patience: the height also stops changing in the gap before
+                    # the next batch arrives. Bailing on the first unchanged
+                    # measurement is how a 150-card listing returns 25 cards.
+                    stable += 1
+                    if stable >= self._config.scroll_stable_passes:
+                        return
+                else:
+                    stable = 0
                 previous_height = height
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(pause_ms)
             except Exception:  # scrolling is best-effort
                 log.debug("scrolling stopped early", exc_info=True)
+                return
+
+    def _click_until_exhausted(self, page: Any, hints: BrowserHints) -> None:
+        """Press a "load more" control until it stops producing new items.
+
+        Some listings replaced infinite scroll with a button, which scrolling
+        alone never triggers: the page stops at its first batch and looks like
+        a small catalogue.
+
+        Success is measured in *items*, not page height. Height changes a beat
+        after the click, so timing it that way reads "nothing happened" while
+        the batch is still in flight -- which is how this quietly returned 25
+        of ~150 cards.
+        """
+        selector = str(hints.get("click_selector") or "")
+        if not selector:
+            return
+        item_selector = str(hints.get("item_selector") or "")
+        max_clicks = int(hints.get("max_clicks", 10))
+        wait_ms = int(hints.get("click_wait_seconds", 10) * 1000)
+
+        def item_count() -> int:
+            if not item_selector:
+                return int(page.evaluate("document.body.scrollHeight") or 0)
+            return int(page.eval_on_selector_all(item_selector, "els => els.length") or 0)
+
+        for _ in range(max_clicks):
+            try:
+                button = next(
+                    (b for b in page.query_selector_all(selector) if b.is_visible()), None
+                )
+                if button is None:
+                    return  # no control left: everything is on the page
+                before = item_count()
+                # Dispatch the click directly rather than going through
+                # Playwright's actionability checks: these listings animate
+                # (countdown badges, lazily-sized images), so the button is
+                # never "stable" and a normal click times out forever.
+                button.evaluate("node => node.click()")
+
+                # Poll for the batch instead of guessing how long it takes.
+                deadline, grown = 0, False
+                while deadline < wait_ms:
+                    page.wait_for_timeout(500)
+                    deadline += 500
+                    if item_count() > before:
+                        grown = True
+                        break
+                if not grown:
+                    return  # clicking changed nothing; we have it all
+                self._scroll_to_bottom(page)
+            except Exception:  # clicking is best-effort
+                log.debug("load-more click stopped early", exc_info=True)
                 return
 
     def close(self) -> None:

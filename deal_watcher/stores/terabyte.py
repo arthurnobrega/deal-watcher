@@ -1,111 +1,57 @@
 """TerabyteShop adapter.
 
-Terabyte renders product cards server-side, so parsing is plain HTML. The site
-sits behind a JavaScript interstitial that plain HTTP cannot clear, so this
-store is configured with ``fetcher: browser``.
+Read through ``sitemap-manus.xml`` and product pages. The listing route is not
+an option, for two independent reasons:
 
-robots.txt allows ``/hardware/`` and ``/produto/`` but not the search endpoint,
-so the adapter reads a category listing page and lets
-:mod:`deal_watcher.matching` narrow it down.
+* ``robots.txt`` says ``Disallow: /busca``.
+* The category page (``/hardware/placas-de-video``, which *is* allowed) now
+  serves 25 cards and hides the rest behind a "CLIQUE PARA VER MAIS PRODUTOS"
+  button. Scrolling does not trigger it, its click handler does nothing when
+  dispatched programmatically, and every pagination parameter tried returns
+  the same first 25 cards. Those 25 contained no RTX 5060 Ti at all.
 
-Price note: the headline price on a Terabyte card is the *Pix / à vista* price,
-which is what the store charges for an immediate payment. That is the number
-this adapter reports.
+The store's own ``robots.txt`` points the way out: it ``Allow``s ``/produto/``
+and ``/sitemap-manus.xml`` -- a 4,400-URL sitemap regenerated every six hours --
+and publishes an ``llms.txt`` describing the catalogue for automated clients.
+So candidates come from the sitemap and prices from each product page's
+``schema.org/Product`` block.
+
+Price note: Terabyte's headline price is the *Pix / à vista* price, which is
+what its structured data reports and what this adapter records. A credit-card
+total will be higher.
 """
 
 from __future__ import annotations
 
-from selectolax.parser import HTMLParser, Node
+from typing import Any
 
-from ..models import ProductOffer
-from ..prices import PriceParseError, parse_brl
-from .base import ParseError, StoreAdapter, register
-
-#: Category listing pages, keyed by the kind of product being searched for.
-#: A query that matches none of these falls back to the GPU listing.
-_CATEGORIES = {
-    "gpu": "hardware/placas-de-video",
-    "cpu": "hardware/processadores",
-    "ram": "hardware/memorias",
-    "ssd": "hardware/discos-e-armazenamento/ssd",
-}
-
-_CATEGORY_HINTS = (
-    ("cpu", ("ryzen", "core i", "processador", "threadripper")),
-    ("ram", ("ddr4", "ddr5", "memoria", "memória")),
-    ("ssd", ("ssd", "nvme", "m.2")),
-)
+from .base import register
+from .sitemap import SitemapProductAdapter
 
 
 @register
-class TerabyteAdapter(StoreAdapter):
+class TerabyteAdapter(SitemapProductAdapter):
     slug = "terabyte"
     display_name = "TerabyteShop"
-    notes = "Behind a JS interstitial: needs the browser fetcher. Prices shown are Pix/à vista."
+    notes = (
+        "Read via the robots.txt-advertised sitemap plus product pages; the listing route is "
+        "disallowed and, as of 2026-08, truncated. Needs the browser fetcher. Prices are Pix."
+    )
 
     base_url = "https://www.terabyteshop.com.br"
+    sitemap_url = f"{base_url}/sitemap-manus.xml"
+    product_url_marker = "/produto/"
+    # Even the sitemap sits behind the interstitial on this store.
+    sitemap_fetcher = "browser"
 
-    def category_for(self, query: str) -> str:
-        lowered = query.casefold()
-        for category, hints in _CATEGORY_HINTS:
-            if any(hint in lowered for hint in hints):
-                return _CATEGORIES[category]
-        return _CATEGORIES["gpu"]
+    def clean_name(self, name: str) -> str:
+        # Titles arrive as "GPU Palit RTX 5060 Ti Infinity 3 16GB | Terabyte".
+        return name.split("|")[0].strip()
 
-    def search_url(self, query: str) -> str:
-        return f"{self.base_url}/{self.category_for(query)}"
-
-    def parse(self, page: str) -> tuple[ProductOffer, ...]:
-        tree = HTMLParser(page)
-        cards = tree.css("div.product-item")
-        if not cards:
-            raise ParseError("no product cards found (layout change or bot challenge?)")
-
-        offers = []
-        for card in cards:
-            offer = self._to_offer(card)
-            if offer is not None:
-                offers.append(offer)
-        if not offers:
-            raise ParseError(f"found {len(cards)} cards but could not read any of them")
-        return tuple(offers)
-
-    def _to_offer(self, card: Node) -> ProductOffer | None:
-        link = card.css_first("a.product-item__name")
-        if link is None:
-            return None
-        url = link.attributes.get("href") or ""
-        name = (link.attributes.get("title") or link.text()).strip()
-        if not name or not url:
-            return None
-
-        # "Todos vendidos" replaces the price box when a card is out of stock.
-        sold_out = card.css_first(".tbt_esgotado") is not None
-        price_node = card.css_first(".product-item__new-price span")
-        if price_node is None:
-            # Out-of-stock cards carry no price. Recording a zero would poison
-            # the price history, and matching would reject them anyway, so the
-            # card is skipped entirely.
-            return None
-
-        try:
-            price = parse_brl(price_node.text())
-        except PriceParseError:
-            return None
-
-        return ProductOffer(
-            store=self.display_name,
-            name=name,
-            price=price,
-            url=url,
-            available=not sold_out,
-            raw_id=self._product_id(url),
-        )
-
-    @staticmethod
-    def _product_id(url: str) -> str | None:
+    def product_id(self, url: str, product: dict[str, Any]) -> str | None:
+        # `sku` here is the manufacturer ("Palit"), not a product id, so the
+        # numeric id from /produto/<id>/<slug> is used instead.
         parts = [part for part in url.split("/") if part]
-        # .../produto/<id>/<slug>
         if "produto" in parts:
             index = parts.index("produto")
             if index + 1 < len(parts):

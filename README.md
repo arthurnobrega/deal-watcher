@@ -79,6 +79,7 @@ Each box has exactly one job:
 | `config.py` | Load and validate `config.yaml`. Unknown keys are errors, not typos you never notice |
 | `fetchers.py` | How pages are retrieved (plain HTTP, or headless Chromium when a site truly needs it) |
 | `stores/` | One adapter per store. Turns a page into offers. Knows nothing about prices or targets |
+| `stores/sitemap.py` | Shared strategy for stores whose listing routes are closed: sitemap discovery plus product pages |
 | `matching.py` | Is this offer actually the product I want? Fails closed |
 | `alerts.py` | How good is this price, and have I already said so? |
 | `notifiers/` | Delivery. One class per channel |
@@ -626,6 +627,20 @@ stores to `enabled: false` and keep KaBuM, which needs no browser.
 - **Two of three stores need a headless browser.** Pichau and TerabyteShop serve
   a JavaScript interstitial to plain HTTP clients. Chromium costs RAM and makes a
   cycle take ~90s instead of ~2s. KaBuM works over plain HTTP.
+- **Two of three stores are read one product page at a time.** Neither Pichau
+  nor TerabyteShop will serve a catalogue to an automated client any more, so
+  both are read through the sitemap each one advertises in `robots.txt`, then
+  one request per candidate. That makes a full cycle take ~3 minutes instead of
+  seconds. Keep `queries` specific — `placa-de-video rtx 5060 ti 16gb` yields 5
+  candidates where `rtx 5060 ti` yields 26, and each one is a page load.
+
+- **TerabyteShop's listing route is unusable, twice over.** `robots.txt` says
+  `Disallow: /busca`, and the allowed category page now serves 25 cards with the
+  rest behind a "CLIQUE PARA VER MAIS PRODUTOS" button: scrolling does not
+  trigger it, a dispatched click does nothing, and every pagination parameter
+  returns the same first 25 cards — which contained no RTX 5060 Ti at all. Its
+  sitemap and `llms.txt` are explicitly `Allow`-ed, so that is the route used.
+
 - **Pichau is disabled by default, because it blocks datacenter IPs.** Its
   Cloudflare rules never clear the interstitial for a VPS or a CI runner: the
   same cycle that returns an offer from a residential connection returns
@@ -636,14 +651,15 @@ stores to `enabled: false` and keep KaBuM, which needs no browser.
   | Store | Residential | VPS (Hostinger) | GitHub Actions |
   | --- | --- | --- | --- |
   | KaBuM! | 6 matches | 6 matches | 6 matches |
-  | TerabyteShop | 5 matches | 5 matches | 0 (page renders partially) |
+  | TerabyteShop | 4 matches | 5 matches | 0 (listing truncated) |
   | Pichau | 1 match | blocked | blocked |
 
-- **Pichau is priced one product page at a time.** Its search endpoint is
-  disallowed by `robots.txt` and its category pages render lazily, so candidates
-  come from the sitemap and each is fetched individually (capped by
-  `max_results`, default 12). Use a specific `queries.pichau` value to keep that
-  number small.
+  Pichau's block is not about headless mode or the user-agent. A visible,
+  headed Chromium window is served the same "Site em Manutenção" page for
+  `/search` and category routes, 5/5, while product pages render 5/5. Getting
+  past it would mean lying about `navigator.webdriver` and TLS fingerprints,
+  which this project does not do.
+
 - **TerabyteShop prices are the Pix / à vista price**, which is what the card
   shows. A credit-card total will be higher.
 - **Scrapers are brittle by nature.** A layout change breaks a parser; the

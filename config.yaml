@@ -21,8 +21,9 @@ browser:
   enabled: true
   timeout_seconds: 45
   wait_after_load_seconds: 6
-  scroll_passes: 10            # lazy listings need scrolling to load fully
-  scroll_pause_seconds: 0.8
+  scroll_passes: 25            # lazy listings need scrolling to load fully
+  scroll_pause_seconds: 1.0
+  scroll_stable_passes: 3      # the page also pauses *between* batches
 
 stores:
   kabum:
@@ -31,11 +32,8 @@ stores:
     max_results: 60
   terabyte:
     enabled: true
-    fetcher: browser           # JS interstitial in front of the listing
-    max_results: 200
-    # The listing lazy-loads ~150 cards. Far fewer means it did not finish,
-    # which must be reported as a failure rather than read as "no deals".
-    min_results: 40
+    fetcher: browser           # JS interstitial in front of every page
+    max_results: 12            # each candidate costs one browser page load
   pichau:
     # Off by default: Pichau's Cloudflare rules never clear the interstitial for
     # datacenter IPs, so on a VPS or CI runner this store reliably fetches
@@ -64,10 +62,13 @@ products:
 
     # Search term per store. Pichau narrows sitemap URLs by these tokens, so a
     # more specific term there means far fewer product pages to fetch.
+    # Sitemap-driven stores match these tokens against the product URL, so a
+    # specific query means fewer pages fetched. "placa-de-video" is what keeps
+    # prebuilt gaming PCs (which also mention "rtx 5060 ti 16gb") out.
     queries:
       kabum: "rtx 5060 ti"
-      terabyte: "rtx 5060 ti"
-      pichau: "rtx-5060-ti-16gb"
+      terabyte: "placa-de-video rtx 5060 ti 16gb"
+      pichau: "placa-de-video rtx-5060-ti-16gb"
 
     # Matching rules. Patterns run against a lowercased, accent-stripped name.
     # The bias is deliberate: miss a deal rather than announce the wrong card.

@@ -126,8 +126,11 @@ class BrowserConfig(StrictModel):
     #: Listings that load more cards as you scroll need scrolling. Without it a
     #: slow box silently returns a fraction of the catalogue, which reads as
     #: "no deals" rather than "did not finish loading".
-    scroll_passes: int = Field(default=10, ge=0, le=50)
-    scroll_pause_seconds: float = Field(default=0.8, ge=0)
+    scroll_passes: int = Field(default=25, ge=0, le=100)
+    scroll_pause_seconds: float = Field(default=1.0, ge=0)
+    #: How many consecutive unchanged measurements mean "finished loading".
+    #: One is not enough: the page also sits still between batches.
+    scroll_stable_passes: int = Field(default=3, ge=1, le=10)
 
 
 class Config(StrictModel):
