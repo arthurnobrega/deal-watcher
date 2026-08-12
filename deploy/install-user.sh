@@ -6,9 +6,11 @@
 #
 # This exists for one specific reason: some stores (Pichau today) refuse
 # datacenter IPs, so they can only be read from an ordinary home connection.
-# The intended split is that this machine watches *only* the stores your server
-# cannot reach. Disjoint store sets mean no offer is watched in two places, so
-# the two installs can never alert you twice for the same deal.
+# A home machine can therefore watch every store, which is what this installs.
+#
+# If you also run a server, split the stores between the two configs rather
+# than watching any store twice: disjoint sets mean no offer is seen in two
+# places, so two installs with separate databases can never double-alert you.
 #
 # Everything lands under your home directory:
 #   ~/.config/deal-watcher/config.yaml         what to watch
@@ -39,9 +41,9 @@ log "installing headless chromium"
 "$REPO_DIR/.venv/bin/playwright" install chromium >/dev/null
 
 if [[ ! -f "$CONFIG_DIR/config.yaml" ]]; then
-  log "writing $CONFIG_DIR/config.yaml (stores your server cannot reach)"
-  # Start from the repo config, then flip it to the home-connection role:
-  # Pichau on, the two stores a server handles fine off.
+  log "writing $CONFIG_DIR/config.yaml (every store enabled)"
+  # Start from the repo config and enable the stores that only answer a
+  # residential connection, which is the whole point of running here.
   python3 - "$REPO_DIR/config.yaml" "$CONFIG_DIR/config.yaml" "$DATA_DIR" <<'PY'
 import re
 import sys
@@ -54,13 +56,11 @@ def set_enabled(text: str, store: str, value: str) -> str:
     return pattern.sub(lambda m: f"{m.group(1)}{m.group(2)}{value}", text, count=1)
 
 text = set_enabled(text, "pichau", "true")
-text = set_enabled(text, "kabum", "false")
-text = set_enabled(text, "terabyte", "false")
 text = re.sub(r"^database:.*$", f"database: {data_dir}/deal-watcher.db", text, count=1, flags=re.M)
 text = (
-    "# Home-connection half of a split install: this machine watches only the\n"
-    "# stores a datacenter IP cannot reach. Keep the store sets disjoint from\n"
-    "# the server's config, or one deal will alert you twice.\n" + text
+    "# Home-connection install: every store enabled, including the ones that\n"
+    "# refuse datacenter IPs. If you also run this on a server, split the\n"
+    "# stores between the two configs -- never watch one store in both.\n" + text
 )
 open(target, "w", encoding="utf-8").write(text)
 PY
@@ -74,6 +74,12 @@ if [[ ! -f "$ENV_FILE" ]]; then
   printf 'TELEGRAM_BOT_TOKEN=\nTELEGRAM_CHAT_ID=\n' >"$ENV_FILE"
   chmod 600 "$ENV_FILE"
 fi
+
+log "installing the ~/.local/bin/deal-watcher wrapper"
+mkdir -p "$HOME/.local/bin"
+sed -e "s#@APP_DIR@#$REPO_DIR#g" "$REPO_DIR/deploy/user/deal-watcher-wrapper.sh" \
+  >"$HOME/.local/bin/deal-watcher"
+chmod 755 "$HOME/.local/bin/deal-watcher"
 
 log "installing user units"
 sed "s#@APP_DIR@#$REPO_DIR#g" "$REPO_DIR/deploy/user/deal-watcher.service" \
@@ -95,7 +101,7 @@ cat <<EOF
 
 Next:
   1. ./deploy/setup-telegram.sh --user      # credentials, hidden prompt
-  2. systemctl --user start deal-watcher.service
+  2. deal-watcher check                     # run one now (needs ~/.local/bin on PATH)
   3. journalctl --user -u deal-watcher -f
   4. systemctl --user list-timers deal-watcher.timer
 
