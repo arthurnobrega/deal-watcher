@@ -7,18 +7,14 @@ the fixture in ``tests/fixtures/`` and the tests will tell you what broke.
 
 from __future__ import annotations
 
-import json
 from decimal import Decimal
 
-import httpx
 import pytest
-import respx
 
 from deal_watcher.fetchers import FetchError
 from deal_watcher.matching import match_offer
 from deal_watcher.stores import ParseError, available_stores, get_adapter
 from deal_watcher.stores.kabum import KabumAdapter
-from deal_watcher.stores.mercadolivre import MercadoLivreAdapter
 from deal_watcher.stores.pichau import PichauAdapter
 from deal_watcher.stores.terabyte import TerabyteAdapter
 
@@ -27,13 +23,13 @@ from .conftest import FakeFetcher, FakeFetcherFactory, fixture
 
 class TestRegistry:
     def test_every_store_is_registered(self) -> None:
-        assert set(available_stores()) == {"kabum", "mercadolivre", "pichau", "terabyte"}
+        assert set(available_stores()) == {"kabum", "pichau", "terabyte"}
 
     def test_unknown_store_names_itself_clearly(self) -> None:
         with pytest.raises(KeyError, match="unknown store"):
             get_adapter("magalu")
 
-    @pytest.mark.parametrize("slug", ["kabum", "mercadolivre", "pichau", "terabyte"])
+    @pytest.mark.parametrize("slug", ["kabum", "pichau", "terabyte"])
     def test_every_adapter_declares_its_identity(self, slug: str) -> None:
         adapter = get_adapter(slug)
         assert adapter.slug == slug
@@ -258,117 +254,3 @@ class TestErrorIsolation:
         factory = FakeFetcherFactory(FakeFetcher({"kabum": fixture("kabum_search.html")}))
         result = KabumAdapter().search("rtx 5060 ti", factory, kind="http", max_results=3)
         assert len(result.offers) == 3
-
-
-class TestMercadoLivre:
-    """An API, not a scrape -- but a marketplace, which brings its own risks."""
-
-    @staticmethod
-    def _payload(**overrides: object) -> str:
-        item = {
-            "id": "MLB123456",
-            "title": "Placa De Video Msi Geforce Rtx 5070 12gb Gddr7",
-            "condition": "new",
-            "price": 4099.9,
-            "currency_id": "BRL",
-            "permalink": "https://produto.mercadolivre.com.br/MLB-123456",
-            "available_quantity": 5,
-            "status": "active",
-        }
-        item.update(overrides)
-        return json.dumps({"results": [item]})
-
-    def test_parses_a_search_response(self) -> None:
-        offers = MercadoLivreAdapter().parse(self._payload())
-        assert len(offers) == 1
-        offer = offers[0]
-        assert offer.store == "Mercado Livre"
-        assert offer.price == Decimal("4099.9")
-        assert offer.available is True
-        assert offer.raw_id == "MLB123456"
-        assert offer.url.startswith("https://")
-
-    def test_used_listings_are_dropped(self) -> None:
-        # The whole reason a marketplace needs extra care: used stock sits in
-        # the same results as new, often cheaper, and would alert first.
-        assert MercadoLivreAdapter().parse(self._payload(condition="used")) == ()
-
-    def test_refurbished_listings_are_dropped(self) -> None:
-        assert MercadoLivreAdapter().parse(self._payload(condition="refurbished")) == ()
-
-    def test_no_stock_is_not_available(self) -> None:
-        offers = MercadoLivreAdapter().parse(self._payload(available_quantity=0))
-        assert offers[0].available is False
-
-    def test_paused_listings_are_not_available(self) -> None:
-        offers = MercadoLivreAdapter().parse(self._payload(status="paused"))
-        assert offers[0].available is False
-
-    def test_garbage_is_a_parse_error(self) -> None:
-        with pytest.raises(ParseError, match="not valid JSON"):
-            MercadoLivreAdapter().parse("<html>nope</html>")
-
-    def test_a_response_without_results_is_a_parse_error(self) -> None:
-        with pytest.raises(ParseError, match="no results list"):
-            MercadoLivreAdapter().parse(json.dumps({"paging": {}}))
-
-    def test_it_refuses_to_run_without_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("MERCADOLIVRE_CLIENT_ID", raising=False)
-        monkeypatch.delenv("MERCADOLIVRE_CLIENT_SECRET", raising=False)
-        result = MercadoLivreAdapter().search("rtx 5070", FakeFetcherFactory(FakeFetcher({})))
-        assert not result.ok
-        assert "MERCADOLIVRE_CLIENT_ID" in (result.error or "")
-
-    @respx.mock
-    def test_it_authenticates_then_searches(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_ID", "1234")
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_SECRET", "shhh-not-a-real-secret")
-        token_route = respx.post("https://api.mercadolibre.com/oauth/token").mock(
-            return_value=httpx.Response(200, json={"access_token": "T0KEN", "expires_in": 21600})
-        )
-        search_route = respx.get("https://api.mercadolibre.com/sites/MLB/search").mock(
-            return_value=httpx.Response(200, text=self._payload())
-        )
-
-        adapter = MercadoLivreAdapter()
-        result = adapter.search("rtx 5070", FakeFetcherFactory(FakeFetcher({})), max_results=50)
-        adapter.close()
-
-        assert result.ok and len(result.offers) == 1
-        assert token_route.called and search_route.called
-        assert search_route.calls[0].request.headers["authorization"] == "Bearer T0KEN"
-
-    @respx.mock
-    def test_the_token_is_reused_across_products(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # One cycle searches once per product; re-authenticating each time would
-        # be pointless traffic against a rate-limited API.
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_ID", "1234")
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_SECRET", "shhh-not-a-real-secret")
-        token_route = respx.post("https://api.mercadolibre.com/oauth/token").mock(
-            return_value=httpx.Response(200, json={"access_token": "T0KEN", "expires_in": 21600})
-        )
-        respx.get("https://api.mercadolibre.com/sites/MLB/search").mock(
-            return_value=httpx.Response(200, text=self._payload())
-        )
-
-        adapter = MercadoLivreAdapter()
-        factory = FakeFetcherFactory(FakeFetcher({}))
-        for _ in range(4):
-            adapter.search("rtx 5070", factory)
-        adapter.close()
-        assert token_route.call_count == 1
-
-    @respx.mock
-    def test_bad_credentials_never_echo_the_secret(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        secret = "shhh-not-a-real-secret"
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_ID", "1234")
-        monkeypatch.setenv("MERCADOLIVRE_CLIENT_SECRET", secret)
-        respx.post("https://api.mercadolibre.com/oauth/token").mock(
-            return_value=httpx.Response(400, json={"error": "invalid_client"})
-        )
-        adapter = MercadoLivreAdapter()
-        result = adapter.search("rtx 5070", FakeFetcherFactory(FakeFetcher({})))
-        adapter.close()
-        assert not result.ok
-        assert "400" in (result.error or "")
-        assert secret not in (result.error or "")

@@ -47,19 +47,6 @@ stores:
     fetcher: browser           # JS interstitial in front of product pages
     max_results: 12            # each candidate costs one browser page load
 
-  mercadolivre:
-    # Official API, no scraping and no browser -- but it needs credentials.
-    # Register a free app at https://developers.mercadolivre.com.br/ and put
-    # MERCADOLIVRE_CLIENT_ID / MERCADOLIVRE_CLIENT_SECRET in your env file,
-    # then flip this to true. It stays off until then so a missing credential
-    # cannot log an error every cycle.
-    #
-    # Marketplace listings are seller-written and mix new, used and imported
-    # stock. The adapter drops anything not listed as new and out-of-stock
-    # items; keep `reject_any` strict for anything you watch here.
-    enabled: false
-    fetcher: http
-    max_results: 50
 
 notifiers:
   telegram:

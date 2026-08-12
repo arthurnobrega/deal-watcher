@@ -24,7 +24,7 @@ class TestShippedConfig:
     def test_it_loads(self) -> None:
         config = load_config(SHIPPED_CONFIG)
         assert config.products
-        assert set(config.stores) == {"kabum", "terabyte", "pichau", "mercadolivre"}
+        assert set(config.stores) == {"kabum", "terabyte", "pichau"}
 
     def test_the_rtx_target_is_configured_not_hardcoded(self) -> None:
         product = load_config(SHIPPED_CONFIG).products[0]

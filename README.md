@@ -333,47 +333,6 @@ Effective: R$ 3.150,00
 
 ---
 
-## Mercado Livre (blocked)
-
-The one store here that is not scraped — and, as of 2026-08, the one that does
-not work. Mercado Livre publishes a documented API, but an ordinary registered
-application is not granted the parts of it that a price monitor needs. Measured
-with a real app:
-
-| Endpoint | Result |
-| --- | --- |
-| `/sites/MLB/search` | `403 forbidden` — with a client_credentials **and** a user token |
-| `/products/search` | `200`, but catalogue entries carry no price |
-| `/products/{id}` | price lives in `buy_box_winner`, so one extra request per product |
-| `refresh_token` | never issued, even with `scope=offline_access` |
-
-The last one is fatal: access tokens last ~6 hours, so the store would die
-twice a day until re-authorised by hand. The adapter and its tests are kept
-because they are correct for an application that holds those grants — if you
-get one approved, enable the store. Otherwise leave it off.
-
-The setup below applies once you have an approved app:
-
-1. Register an application at
-   [developers.mercadolivre.com.br](https://developers.mercadolivre.com.br/).
-   Grant only the **Usuários** permission and subscribe to no topics — search
-   needs no account access, and the redirect URI is never visited, so any
-   HTTPS URL you own will do.
-2. Run the helper, which stores the credentials, proves they work against the
-   real search endpoint, and enables the store:
-
-   ```bash
-   ./deploy/setup-mercadolivre.sh --user   # or: sudo ./deploy/setup-mercadolivre.sh
-   ```
-
-Worth knowing before you rely on it: it is a *marketplace*. Titles are written
-by sellers rather than manufacturers, and one search returns new, used,
-imported and grey-market listings together. The adapter drops anything not
-listed as `new` and anything out of stock, but the real defence is still your
-`match` rules — keep `reject_any` strict for anything watched here.
-
----
-
 ## Adding a store
 
 One file, one import, one config block.
@@ -589,8 +548,6 @@ and a store is only worth this if its prices actually compete. Check with
 | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | yes, if Telegram is enabled | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | yes, if Telegram is enabled | Where to send messages |
-| `MERCADOLIVRE_CLIENT_ID` | only for the Mercado Livre store | Free developer app credentials |
-| `MERCADOLIVRE_CLIENT_SECRET` | only for the Mercado Livre store | Exchanged for a short-lived token |
 | `DEAL_WATCHER_CONFIG` | no | Config path, if not `./config.yaml` |
 | `PLAYWRIGHT_BROWSERS_PATH` | no | Where Chromium lives (set by the installer) |
 
@@ -712,6 +669,12 @@ stores to `enabled: false` and keep KaBuM, which needs no browser.
   populates it. See [Coupons and cashback](#coupons-and-cashback).
 - **Marketplace sellers are not distinguished** on stores that have them, beyond
   rejecting open-box items.
+
+- **Mercado Livre is not supported, and will not be.** Its API refuses
+  catalogue search to unapproved applications (`403` with any token) and issues
+  no refresh token, and its `robots.txt` opens by naming AI agents —
+  `ClaudeBot`, `Claude-User`, `GPTBot`, `PerplexityBot` — with `Disallow: /`.
+  Both doors are closed on purpose, so there is nothing here to fix.
 - **Product matching is regex-based.** It is auditable and predictable, but a
   genuinely novel naming convention could produce a false negative. That is the
   intended direction to fail in.
