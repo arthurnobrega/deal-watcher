@@ -32,7 +32,12 @@ stores:
     fetcher: browser           # JS interstitial in front of the listing
     max_results: 200
   pichau:
-    enabled: true
+    # Off by default: Pichau's Cloudflare rules never clear the interstitial for
+    # datacenter IPs, so on a VPS or CI runner this store reliably fetches
+    # nothing while costing ~75s and 12 browser page loads per cycle. It does
+    # work from an ordinary residential connection -- flip this on if that is
+    # where you run it, and check the logs.
+    enabled: false
     fetcher: browser           # JS interstitial in front of product pages
     max_results: 12            # each candidate costs one browser page load
 

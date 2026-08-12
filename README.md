@@ -591,6 +591,19 @@ stores to `enabled: false` and keep KaBuM, which needs no browser.
 - **Two of three stores need a headless browser.** Pichau and TerabyteShop serve
   a JavaScript interstitial to plain HTTP clients. Chromium costs RAM and makes a
   cycle take ~90s instead of ~2s. KaBuM works over plain HTTP.
+- **Pichau is disabled by default, because it blocks datacenter IPs.** Its
+  Cloudflare rules never clear the interstitial for a VPS or a CI runner: the
+  same cycle that returns an offer from a residential connection returns
+  nothing from either, while spending ~75s on 12 browser page loads. Enable it
+  in `config.yaml` if you run from an ordinary home connection. Measured on the
+  same commit, minutes apart:
+
+  | Store | Residential | VPS (Hostinger) | GitHub Actions |
+  | --- | --- | --- | --- |
+  | KaBuM! | 6 matches | 6 matches | 6 matches |
+  | TerabyteShop | 5 matches | 5 matches | 0 (page renders partially) |
+  | Pichau | 1 match | blocked | blocked |
+
 - **Pichau is priced one product page at a time.** Its search endpoint is
   disallowed by `robots.txt` and its category pages render lazily, so candidates
   come from the sitemap and each is fetched individually (capped by
