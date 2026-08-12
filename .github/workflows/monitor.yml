@@ -11,11 +11,12 @@ name: Monitor
 # Committing state also counts as repository activity, which stops GitHub
 # disabling the schedule after 60 days of quiet.
 
+# The schedule is deliberately absent: production runs on a server, where
+# TerabyteShop is readable and Pichau at least fails cheaply. Left scheduled,
+# this workflow would monitor KaBuM alone, alert from a second place with its
+# own state, and fill the Actions tab. It stays here as a manual fallback --
+# add a `schedule:` block to turn it back on.
 on:
-  schedule:
-    # Every 15 minutes. GitHub queues scheduled runs best-effort, so treat this
-    # as "roughly every 15-30 minutes", not a guarantee.
-    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
