@@ -169,7 +169,8 @@ notifiers:
     chat_id_env: TELEGRAM_CHAT_ID
 
 products:
-  - name: "RTX 5060 Ti 16GB"
+  - id: rtx-5060-ti-16gb   # stable history key; set one before you reword `name`
+    name: "RTX 5060 Ti 16GB"
     max_price: 3300
     alert_levels:
       good: 3300
@@ -448,6 +449,11 @@ Append to `products:` in `config.yaml`. Nothing else changes.
 
 `required_memory_gb` / `forbidden_memory_gb` are GPU-and-RAM specific; leave them
 out for a CPU. Add `stores: [kabum, terabyte]` to limit a product to some stores.
+
+Give every product an `id`. Price history is filed under it, so with one you
+can reword `name` freely; without one, the name *is* the key and renaming a
+product silently orphans everything recorded under the old name — the history
+is still in the database, just filed under a name nothing looks up any more.
 
 Test your rules before trusting them:
 

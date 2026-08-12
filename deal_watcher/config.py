@@ -68,6 +68,10 @@ class MatchRules(StrictModel):
 
 
 class ProductConfig(StrictModel):
+    #: Stable key for price history, independent of the display name. Set one
+    #: if you ever want to reword `name`: history is filed under this, so
+    #: without it a rename silently orphans everything recorded so far.
+    id: str | None = None
     name: str
     max_price: Decimal
     match: MatchRules = MatchRules()
@@ -84,6 +88,11 @@ class ProductConfig(StrictModel):
                 self, "alert_levels", self.alert_levels.model_copy(update={"good": self.max_price})
             )
         return self
+
+    @property
+    def key(self) -> str:
+        """What price history is filed under. Falls back to the display name."""
+        return self.id or self.name
 
     def query_for(self, store_slug: str) -> str:
         return self.queries.get(store_slug, self.name)

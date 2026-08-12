@@ -209,7 +209,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 
     with Storage(config.database) as storage:
         for product in config.products:
-            best = storage.best_offer(product.name)
+            best = storage.best_offer(product.key)
             label = product.name
             if len(label) > width:
                 label = label[: width - 1] + "…"
@@ -235,7 +235,7 @@ def cmd_report(args: argparse.Namespace) -> int:
             lines.append(line)
 
             if args.all_stores and best is not None:
-                for entry in storage.latest_offers(product.name):
+                for entry in storage.latest_offers(product.key):
                     if not entry.available:
                         continue
                     name = f"  {entry.name}"[:width]

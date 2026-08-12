@@ -55,7 +55,8 @@ notifiers:
     chat_id_env: TELEGRAM_CHAT_ID
 
 products:
-  - name: "RTX 5060 Ti 16GB"
+  - id: rtx-5060-ti-16gb
+    name: "RTX 5060 Ti 16GB"
     max_price: 4000
 
     # Alert levels, best to worst. `good` defaults to max_price.
@@ -97,7 +98,8 @@ products:
   # load. A loose *name* and a tight *query* are not in conflict -- the query
   # decides what is worth fetching, `match` decides what counts.
 
-  - name: "Intel Core Ultra 5 245KF"
+  - id: cpu-245kf
+    name: "Intel Core Ultra 5 245KF"
     max_price: 656.99
     alert_levels: { good: 656.99, excellent: 624, buy_now: 591 }
     queries:
@@ -112,7 +114,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado|vitrine"
         - "pc gamer|computador|notebook|kit upgrade"
 
-  - name: "Cooler Assassin Spirit 120 EVO"
+  - id: cooler-assassin-spirit-120-evo
+    name: "Cooler Assassin Spirit 120 EVO"
     max_price: 143.99
     alert_levels: { good: 143.99, excellent: 137, buy_now: 130 }
     queries:
@@ -127,7 +130,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|kit upgrade"
 
-  - name: "Placa-mãe B860 Eagle WIFI6E"
+  - id: mobo-b860-eagle-wifi6e
+    name: "Placa-mãe B860 Eagle WIFI6E"
     max_price: 1250.99
     alert_levels: { good: 1250.99, excellent: 1188, buy_now: 1126 }
     queries:
@@ -145,7 +149,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|kit upgrade"
 
-  - name: "RAM Fury Beast 32GB DDR5 6000"
+  - id: ram-fury-beast-32gb-ddr5-6000
+    name: "RAM Fury Beast 32GB DDR5 6000"
     max_price: 4139.99
     alert_levels: { good: 4139.99, excellent: 3933, buy_now: 3726 }
     queries:
@@ -162,7 +167,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook|kit upgrade"
 
-  - name: "RTX 5070 12GB"
+  - id: rtx-5070-12gb
+    name: "RTX 5070 12GB"
     max_price: 4139.99
     alert_levels: { good: 4139.99, excellent: 3933, buy_now: 3726 }
     queries:
@@ -180,7 +186,8 @@ products:
         - "pc gamer|computador|notebook|kit upgrade"
         - "suporte|cabo|adaptador|riser|water ?cooler"
 
-  - name: "SSD NM790 1TB"
+  - id: ssd-nm790-1tb
+    name: "SSD NM790 1TB"
     max_price: 1169.99
     alert_levels: { good: 1169.99, excellent: 1111, buy_now: 1053 }
     queries:
@@ -198,7 +205,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook"
 
-  - name: "Gabinete 3000D Airflow"
+  - id: gabinete-3000d-airflow
+    name: "Gabinete 3000D Airflow"
     max_price: 395.99
     alert_levels: { good: 395.99, excellent: 376, buy_now: 356 }
     queries:
@@ -213,7 +221,8 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador"
 
-  - name: "Fonte RM750e 750W"
+  - id: fonte-rm750e-750w
+    name: "Fonte RM750e 750W"
     max_price: 584.99
     alert_levels: { good: 584.99, excellent: 556, buy_now: 526 }
     queries:

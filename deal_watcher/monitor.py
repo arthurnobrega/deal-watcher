@@ -131,7 +131,7 @@ class Monitor:
                 log.debug("%s: rejected %r -- %s", result.store, offer.name, reason.reason)
 
             for offer in matched:
-                self.storage.record_offer(product.name, offer)
+                self.storage.record_offer(product.key, offer)
                 self._track_best(offer, report)
                 report.matches.append(offer)
                 self._maybe_alert(offer, product, report, dry_run=dry_run)
