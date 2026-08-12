@@ -52,7 +52,7 @@ notifiers:
 
 products:
   - name: "RTX 5060 Ti 16GB"
-    max_price: 3300
+    max_price: 4000
 
     # Alert levels, best to worst. `good` defaults to max_price.
     alert_levels:
@@ -66,7 +66,7 @@ products:
     # specific query means fewer pages fetched. "placa-de-video" is what keeps
     # prebuilt gaming PCs (which also mention "rtx 5060 ti 16gb") out.
     queries:
-      kabum: "rtx 5060 ti"
+      kabum: "rtx 5060 ti 16gb"
       terabyte: "placa-de-video rtx 5060 ti 16gb"
       pichau: "placa-de-video rtx-5060-ti-16gb"
 
