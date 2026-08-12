@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# No secrets are used by this workflow. The tests never touch the network:
+# store adapters run against static fixtures and Telegram is mocked.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest --cov=deal_watcher --cov-report=term-missing
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if anything token-shaped was committed
+        run: |
+          set -euo pipefail
+          # A Telegram bot token looks like 123456789:AAF...
+          # tests/ is excluded: it holds deliberately fake, obviously-invalid
+          # credentials used to prove that real ones can never reach a log line.
+          if git grep -nIE '[0-9]{6,12}:[A-Za-z0-9_-]{30,}' -- . ':!*.lock' ':!tests'; then
+            echo "::error::possible bot token committed"
+            exit 1
+          fi
+          # An .env file must never be tracked.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked by git"
+            exit 1
+          fi
+          echo "no secrets found"
