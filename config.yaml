@@ -42,7 +42,7 @@ stores:
     # nothing while costing ~75s and 12 browser page loads per cycle. It does
     # work from an ordinary residential connection -- flip this on if that is
     # where you run it, and check the logs.
-    enabled: false
+    enabled: true
     fetcher: browser           # JS interstitial in front of product pages
     max_results: 12            # each candidate costs one browser page load
 

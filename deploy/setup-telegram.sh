@@ -1,21 +1,36 @@
 #!/usr/bin/env bash
 #
-# Interactively write /etc/deal-watcher/deal-watcher.env.
+# Interactively write the credentials file for a system or user install.
 #
-#   sudo ./deploy/setup-telegram.sh
+#   sudo ./deploy/setup-telegram.sh          # system install (server)
+#   ./deploy/setup-telegram.sh --user        # user install (your own machine)
 #
-# The token is typed into a hidden prompt and written straight to a 0640 file
-# owned by root:dealwatcher. It is never echoed, never passed as a command-line
-# argument (which would show up in `ps`), and never written to shell history.
+# The token is typed into a hidden prompt and written straight to a file only
+# its owner can read (root:dealwatcher 0640 for a system install, 0600 for a
+# user one). It is never echoed, never passed as a command-line argument or in
+# the environment of a command (both are readable through `ps`), and never
+# written to shell history. The test message reads it back from that file.
 #
 # The chat id is discovered by asking Telegram which chats have messaged the
 # bot, so you do not have to dig through a JSON blob yourself.
 set -euo pipefail
 
-ENV_FILE=/etc/deal-watcher/deal-watcher.env
-APP_USER=dealwatcher
+MODE=system
+[[ "${1:-}" == "--user" ]] && MODE=user
 
-[[ $EUID -eq 0 ]] || { echo "run me with sudo" >&2; exit 1; }
+if [[ $MODE == user ]]; then
+  ENV_FILE="$HOME/.config/deal-watcher/deal-watcher.env"
+  BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.venv/bin/deal-watcher"
+  CONFIG="$HOME/.config/deal-watcher/config.yaml"
+  [[ $EUID -ne 0 ]] || { echo "--user means your own account, not root" >&2; exit 1; }
+  mkdir -p "$(dirname "$ENV_FILE")"
+else
+  ENV_FILE=/etc/deal-watcher/deal-watcher.env
+  APP_USER=dealwatcher
+  BIN=/opt/deal-watcher/.venv/bin/deal-watcher
+  CONFIG=/etc/deal-watcher/config.yaml
+  [[ $EUID -eq 0 ]] || { echo "run me with sudo (or pass --user)" >&2; exit 1; }
+fi
 
 # Keep the token out of the terminal scrollback and out of `ps`.
 read -rsp "Telegram bot token (input hidden): " TOKEN
@@ -46,22 +61,40 @@ if [[ -z "$CHAT_ID" ]]; then
 fi
 echo "    chat id: ${CHAT_ID}"
 
-install -o root -g "$APP_USER" -m 640 /dev/null "$ENV_FILE"
 umask 077
+install -m 600 /dev/null "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
 TELEGRAM_BOT_TOKEN=${TOKEN}
 TELEGRAM_CHAT_ID=${CHAT_ID}
 EOF
-chown root:"$APP_USER" "$ENV_FILE"
-chmod 640 "$ENV_FILE"
-unset TOKEN
 
-echo "==> wrote $ENV_FILE (root:${APP_USER}, 0640)"
+if [[ $MODE == system ]]; then
+  chown root:"$APP_USER" "$ENV_FILE"
+  chmod 640 "$ENV_FILE"
+  echo "==> wrote $ENV_FILE (root:${APP_USER}, 0640)"
+else
+  chmod 600 "$ENV_FILE"
+  echo "==> wrote $ENV_FILE ($USER, 0600)"
+fi
+unset TOKEN CHAT_ID
+
 echo
 echo "==> sending a test message"
-if sudo -u "$APP_USER" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-     /opt/deal-watcher/.venv/bin/deal-watcher \
-     --config /etc/deal-watcher/config.yaml test-notification; then
+# Read the credentials back from the file rather than handing them to a
+# command: anything in argv or in a command's environment is readable by other
+# users through `ps` and /proc.
+if [[ $MODE == system ]]; then
+  # The installed wrapper sources the env file itself.
+  TEST_CMD=(sudo -u "$APP_USER" /usr/local/bin/deal-watcher test-notification)
+else
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+  TEST_CMD=("$BIN" --config "$CONFIG" test-notification)
+fi
+
+if "${TEST_CMD[@]}"; then
   echo
   echo "Check Telegram -- you should have a message from @${BOT_NAME}."
 else

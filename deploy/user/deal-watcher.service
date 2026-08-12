@@ -1,0 +1,26 @@
+[Unit]
+Description=deal-watcher price check (user session)
+Documentation=https://github.com/arthurnobrega/deal-watcher
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@APP_DIR@
+
+# Credentials, 0600 and owned by you. Never in git.
+EnvironmentFile=%h/.config/deal-watcher/deal-watcher.env
+Environment=PLAYWRIGHT_BROWSERS_PATH=%h/.cache/ms-playwright
+
+ExecStart=@APP_DIR@/.venv/bin/deal-watcher --config %h/.config/deal-watcher/config.yaml check
+
+TimeoutStartSec=600
+# A desktop has better things to do than lose a core to a price check.
+Nice=15
+IOSchedulingClass=idle
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deal-watcher
+
+[Install]
+WantedBy=default.target

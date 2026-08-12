@@ -514,6 +514,33 @@ sudo userdel dealwatcher
 
 ---
 
+## Running from a home connection as well
+
+Some stores refuse datacenter IPs outright (Pichau does today), so they can only
+be read from an ordinary residential connection. If you want one of those
+covered, run a second install on a machine at home — with the store sets kept
+**disjoint**, so no offer is watched twice and no deal can alert you twice:
+
+```bash
+./deploy/install-user.sh          # no root: units, config and data under $HOME
+./deploy/setup-telegram.sh --user # same hidden-prompt flow, 0600 file
+```
+
+It writes a config with only the datacenter-blocked stores enabled, installs a
+user-level systemd timer, and enables lingering so it keeps running after you
+log out.
+
+```bash
+systemctl --user list-timers deal-watcher.timer
+journalctl --user -u deal-watcher -f
+```
+
+Weigh it up first. A desktop sleeps, reboots and travels, so it will have gaps —
+and a store is only worth this if its prices actually compete. Check with
+`deal-watcher history` before bothering.
+
+---
+
 ## Environment variables
 
 | Variable | Required | Purpose |
