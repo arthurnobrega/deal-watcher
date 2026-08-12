@@ -98,6 +98,10 @@ class StoreConfig(StrictModel):
     #: Max offers parsed from one search page. Guards against a layout change
     #: turning one query into thousands of bogus candidates.
     max_results: int = Field(default=60, ge=1, le=500)
+    #: Fewer offers than this means the page did not finish loading. Treated as
+    #: a store failure, because a half-loaded listing that finds nothing is
+    #: indistinguishable from a listing that genuinely has nothing.
+    min_results: int = Field(default=0, ge=0)
 
 
 class TelegramConfig(StrictModel):
@@ -119,6 +123,11 @@ class BrowserConfig(StrictModel):
     timeout_seconds: float = 45.0
     #: Extra settle time after load, for stores behind a JS interstitial.
     wait_after_load_seconds: float = 6.0
+    #: Listings that load more cards as you scroll need scrolling. Without it a
+    #: slow box silently returns a fraction of the catalogue, which reads as
+    #: "no deals" rather than "did not finish loading".
+    scroll_passes: int = Field(default=10, ge=0, le=50)
+    scroll_pause_seconds: float = Field(default=0.8, ge=0)
 
 
 class Config(StrictModel):

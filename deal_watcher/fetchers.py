@@ -143,6 +143,7 @@ class BrowserFetcher:
             page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
             if self._config.wait_after_load_seconds:
                 page.wait_for_timeout(int(self._config.wait_after_load_seconds * 1000))
+            self._scroll_to_bottom(page)
             return str(page.content())
         except FetchError:
             raise
@@ -154,6 +155,30 @@ class BrowserFetcher:
                     context.close()
                 except Exception:  # pragma: no cover - best-effort cleanup
                     log.debug("browser context close failed", exc_info=True)
+
+    def _scroll_to_bottom(self, page: Any) -> None:
+        """Scroll until the page stops growing, so lazy listings finish loading.
+
+        Store listings commonly render a first screenful and fetch the rest as
+        you scroll. On a slow box, taking the first screenful at face value
+        silently drops most of the catalogue -- and a missing offer looks
+        exactly like an offer that is not on sale.
+        """
+        if not self._config.scroll_passes:
+            return
+        pause_ms = int(self._config.scroll_pause_seconds * 1000)
+        previous_height = 0
+        for _ in range(self._config.scroll_passes):
+            try:
+                height = int(page.evaluate("document.body.scrollHeight") or 0)
+                if height and height == previous_height:
+                    return  # nothing new loaded; we have the whole list
+                previous_height = height
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(pause_ms)
+            except Exception:  # scrolling is best-effort
+                log.debug("scrolling stopped early", exc_info=True)
+                return
 
     def close(self) -> None:
         for resource, method in ((self._browser, "close"), (self._playwright, "stop")):

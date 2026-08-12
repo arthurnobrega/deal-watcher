@@ -50,6 +50,7 @@ class StoreAdapter(ABC):
         fetchers: FetcherFactory,
         kind: str = "http",
         max_results: int = 60,
+        min_results: int = 0,
     ) -> StoreResult:
         """Fetch and parse, converting any failure into a failed :class:`StoreResult`.
 
@@ -72,6 +73,14 @@ class StoreAdapter(ABC):
                 store=self.display_name, error=f"unexpected {type(exc).__name__}: {exc}"
             )
 
+        if min_results and len(offers) < min_results:
+            # Trusting a half-loaded page would turn "did not load" into the
+            # much quieter, much worse "found no deals".
+            return StoreResult(
+                store=self.display_name,
+                error=f"only {len(offers)} offers parsed, expected at least {min_results} "
+                "(page probably did not finish loading)",
+            )
         return StoreResult(store=self.display_name, offers=offers[:max_results])
 
     def collect(

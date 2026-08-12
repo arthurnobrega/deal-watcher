@@ -95,12 +95,14 @@ jobs:
         run: |
           set -euo pipefail
           [ -f data/deal-watcher.db ] || exit 0
-          git config user.name "deal-watcher[bot]"
-          git config user.email "deal-watcher@users.noreply.github.com"
           rm -rf /tmp/state && mkdir /tmp/state
           cp data/deal-watcher.db /tmp/state/
           cd /tmp/state
           git init -q -b state
+          # Identity has to be set here: the commit happens in this fresh repo,
+          # not in the checkout, so config set over there does not apply.
+          git config user.name "deal-watcher[bot]"
+          git config user.email "deal-watcher@users.noreply.github.com"
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           git add deal-watcher.db
           git commit -q -m "chore: price state $(date -u +%FT%TZ) [skip ci]"

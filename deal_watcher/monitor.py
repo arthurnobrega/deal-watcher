@@ -142,6 +142,7 @@ class Monitor:
             fetchers=self.fetchers,
             kind=store_config.fetcher,
             max_results=store_config.max_results,
+            min_results=store_config.min_results,
         )
 
     @staticmethod

@@ -206,6 +206,26 @@ class TestErrorIsolation:
         assert not result.ok
         assert "kaboom" in (result.error or "")
 
+    def test_a_partially_loaded_page_is_a_failure_not_an_empty_result(self) -> None:
+        # The quiet failure this guards: a lazy listing that renders a fraction
+        # of its cards, finds no deal in them, and reports "no deals" instead of
+        # "did not finish loading".
+        factory = FakeFetcherFactory(FakeFetcher({"kabum": fixture("kabum_search.html")}))
+        result = KabumAdapter().search("rtx 5060 ti", factory, kind="http", min_results=40)
+        assert not result.ok
+        assert "did not finish loading" in (result.error or "")
+        assert result.offers == ()
+
+    def test_a_full_page_passes_the_same_guard(self) -> None:
+        factory = FakeFetcherFactory(FakeFetcher({"kabum": fixture("kabum_search.html")}))
+        result = KabumAdapter().search("rtx 5060 ti", factory, kind="http", min_results=10)
+        assert result.ok
+        assert len(result.offers) == 10
+
+    def test_the_guard_is_off_by_default(self) -> None:
+        factory = FakeFetcherFactory(FakeFetcher({"kabum": fixture("kabum_search.html")}))
+        assert KabumAdapter().search("rtx 5060 ti", factory, kind="http").ok
+
     def test_max_results_caps_a_runaway_page(self) -> None:
         factory = FakeFetcherFactory(FakeFetcher({"kabum": fixture("kabum_search.html")}))
         result = KabumAdapter().search("rtx 5060 ti", factory, kind="http", max_results=3)
