@@ -1,0 +1,74 @@
+# deal-watcher configuration.
+#
+# No secrets live here. The Telegram token and chat id are read from the
+# environment variables named under `notifiers.telegram`.
+
+interval_seconds: 900          # 15 minutes
+health_max_age_seconds: 3600   # `health` fails if no cycle finished in an hour
+database: data/deal-watcher.db
+log_level: INFO
+log_format: text               # text | json
+
+http:
+  timeout_seconds: 20
+  retries: 2
+  backoff_seconds: 2.0
+  delay_between_requests: 1.5  # be a polite guest
+
+browser:
+  # Playwright, needed only by stores whose pages are not readable over plain
+  # HTTP. Costs ~300 MB of RAM while a cycle runs. See README.
+  enabled: true
+  timeout_seconds: 45
+  wait_after_load_seconds: 6
+
+stores:
+  kabum:
+    enabled: true
+    fetcher: http              # catalogue is embedded in the page as JSON
+    max_results: 60
+  terabyte:
+    enabled: true
+    fetcher: browser           # JS interstitial in front of the listing
+    max_results: 200
+  pichau:
+    enabled: true
+    fetcher: browser           # JS interstitial in front of product pages
+    max_results: 12            # each candidate costs one browser page load
+
+notifiers:
+  telegram:
+    enabled: true
+    token_env: TELEGRAM_BOT_TOKEN
+    chat_id_env: TELEGRAM_CHAT_ID
+
+products:
+  - name: "RTX 5060 Ti 16GB"
+    max_price: 3300
+
+    # Alert levels, best to worst. `good` defaults to max_price.
+    alert_levels:
+      good: 3300       # 🟢 GOOD DEAL
+      excellent: 3200  # 🔥 EXCELLENT
+      buy_now: 3000    # 🚨 BUY NOW
+
+    # Search term per store. Pichau narrows sitemap URLs by these tokens, so a
+    # more specific term there means far fewer product pages to fetch.
+    queries:
+      kabum: "rtx 5060 ti"
+      terabyte: "rtx 5060 ti"
+      pichau: "rtx-5060-ti-16gb"
+
+    # Matching rules. Patterns run against a lowercased, accent-stripped name.
+    # The bias is deliberate: miss a deal rather than announce the wrong card.
+    match:
+      require_available: true
+      required_memory_gb: 16     # must say 16GB
+      forbidden_memory_gb: [8]   # and must never say 8GB
+      require_all:
+        - "rtx\\s*5060\\s*ti"
+      reject_any:
+        - "\\brtx\\s*(5050|5070|5080|5090|4060|4070|5060)\\b(?!\\s*ti)"
+        - "usado|semi ?novo|open ?box|recondicionado|refurbished|vitrine"
+        - "pc gamer|computador|desktop|workstation|notebook|kit upgrade"
+        - "suporte|cabo|adaptador|riser|water ?cooler|bracket|espelho"
