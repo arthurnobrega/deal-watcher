@@ -476,9 +476,7 @@ outbound connections — to the stores and to Telegram.
 Then:
 
 ```bash
-sudoedit /etc/deal-watcher/deal-watcher.env      # add your two Telegram values
-sudo -u dealwatcher /opt/deal-watcher/.venv/bin/deal-watcher \
-     --config /etc/deal-watcher/config.yaml test-notification
+sudo ./deploy/setup-telegram.sh                  # hidden prompt, finds your chat id, sends a test
 sudo systemctl start deal-watcher.service        # run one cycle now
 journalctl -u deal-watcher -f                    # watch it
 systemctl list-timers deal-watcher.timer         # confirm the schedule
