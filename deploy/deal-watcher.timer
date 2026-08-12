@@ -1,0 +1,21 @@
+[Unit]
+Description=Run deal-watcher every 15 minutes
+Documentation=https://github.com/arthurnobrega/deal-watcher
+
+[Timer]
+# First run shortly after boot, then every 15 minutes.
+OnBootSec=2min
+OnUnitActiveSec=15min
+
+# Catch up on a missed run after downtime instead of waiting a full interval.
+Persistent=true
+
+# Spread the load so every deal-watcher on earth is not hitting the same stores
+# on the same second.
+RandomizedDelaySec=90
+
+AccuracySec=30s
+Unit=deal-watcher.service
+
+[Install]
+WantedBy=timers.target

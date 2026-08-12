@@ -1,0 +1,57 @@
+[Unit]
+Description=deal-watcher price check
+Documentation=https://github.com/arthurnobrega/deal-watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# One cycle per activation; the timer decides when. A crashed or hung cycle
+# cannot wedge the service, and the next tick starts clean.
+Type=oneshot
+User=dealwatcher
+Group=dealwatcher
+WorkingDirectory=/opt/deal-watcher
+
+# Secrets live here, root-owned and readable only by the service user.
+# 0600, never in git, never in the image, never echoed to the log.
+EnvironmentFile=/etc/deal-watcher/deal-watcher.env
+
+# Chromium (used only by stores with `fetcher: browser`) needs a writable HOME
+# and a fixed browser location, since /opt is read-only under ProtectSystem.
+Environment=HOME=/var/lib/deal-watcher
+Environment=XDG_CACHE_HOME=/var/lib/deal-watcher/.cache
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/deal-watcher/browsers
+
+ExecStart=/opt/deal-watcher/.venv/bin/deal-watcher --config /etc/deal-watcher/config.yaml check
+
+TimeoutStartSec=600
+Nice=10
+
+# --- Hardening. The monitor only needs outbound HTTPS and its own data dir. ---
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=no
+LockPersonality=yes
+RemoveIPC=yes
+ReadWritePaths=/var/lib/deal-watcher
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# The monitor never listens; it only makes outbound connections.
+IPAddressDeny=
+SystemCallArchitectures=native
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deal-watcher
+
+[Install]
+WantedBy=multi-user.target
