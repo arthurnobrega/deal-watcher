@@ -77,6 +77,9 @@ EOF
   chown root:"$APP_USER" "$ENV_FILE"
 fi
 
+log "installing the /usr/local/bin/deal-watcher wrapper"
+install -m 755 "$APP_DIR/deploy/deal-watcher-wrapper.sh" /usr/local/bin/deal-watcher
+
 log "installing systemd units"
 install -m 644 "$APP_DIR/deploy/deal-watcher.service" /etc/systemd/system/
 install -m 644 "$APP_DIR/deploy/deal-watcher.timer" /etc/systemd/system/
@@ -91,7 +94,7 @@ cat <<EOF
 
 Next:
   1. put your credentials in $ENV_FILE  (chmod 640, root:$APP_USER)
-  2. sudo -u $APP_USER $APP_DIR/.venv/bin/deal-watcher --config $CONFIG_DIR/config.yaml test-notification
+  2. sudo -u $APP_USER deal-watcher test-notification
   3. systemctl start deal-watcher.service     # run one cycle now
   4. journalctl -u deal-watcher -f            # watch it work
   5. systemctl list-timers deal-watcher.timer # confirm the schedule

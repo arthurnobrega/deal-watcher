@@ -482,6 +482,16 @@ journalctl -u deal-watcher -f                    # watch it
 systemctl list-timers deal-watcher.timer         # confirm the schedule
 ```
 
+The installer also puts a `deal-watcher` wrapper on `PATH`, so hand-run
+commands behave exactly like the timer does — same config, same browser path,
+same credentials:
+
+```bash
+sudo -u dealwatcher deal-watcher health
+sudo -u dealwatcher deal-watcher history --limit 20
+sudo -u dealwatcher deal-watcher check --dry-run
+```
+
 The service unit is hardened: `NoNewPrivileges`, `ProtectSystem=strict`,
 `ProtectHome`, `PrivateTmp`, a restricted syscall and address-family set, and
 exactly one writable path (`/var/lib/deal-watcher`).
