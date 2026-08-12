@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 
@@ -104,10 +104,12 @@ class BrowserFetcher:
     def __init__(self, config: BrowserConfig, http: HttpConfig) -> None:
         self._config = config
         self._http = http
-        self._playwright: object | None = None
-        self._browser: object | None = None
+        # Typed as Any because Playwright is an optional dependency: annotating
+        # these concretely would make the module unimportable without it.
+        self._playwright: Any = None
+        self._browser: Any = None
 
-    def _ensure_browser(self) -> object:
+    def _ensure_browser(self) -> Any:
         if self._browser is not None:
             return self._browser
         try:
@@ -132,7 +134,7 @@ class BrowserFetcher:
         timeout_ms = int(self._config.timeout_seconds * 1000)
         context = None
         try:
-            context = browser.new_context(  # type: ignore[attr-defined]
+            context = browser.new_context(
                 user_agent=self._http.user_agent,
                 locale="pt-BR",
                 viewport={"width": 1366, "height": 900},
