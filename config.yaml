@@ -57,12 +57,12 @@ notifiers:
 products:
   - id: rtx-5060-ti-16gb
     name: "RTX 5060 Ti 16GB"
-    max_price: 4000
+    max_price: 3800
 
     # Alert levels, best to worst. `good` defaults to max_price.
     alert_levels:
-      good: 4000       # 🟢 GOOD DEAL
-      excellent: 3700  # 🔥 EXCELLENT
+      good: 3800       # 🟢 GOOD DEAL
+      excellent: 3600  # 🔥 EXCELLENT
       buy_now: 3400    # 🚨 BUY NOW
 
     # Sitemap-driven stores match these tokens against the product URL, so a
@@ -87,11 +87,31 @@ products:
         - "pc gamer|computador|desktop|workstation|notebook|kit upgrade"
         - "suporte|cabo|adaptador|riser|water ?cooler|bracket|espelho"
 
+  - id: rtx-5070-12gb
+    name: "RTX 5070 12GB"
+    max_price: 4400
+    alert_levels: { good: 4400, excellent: 4200, buy_now: 4000 }
+    queries:
+      kabum: "rtx 5070 12gb"
+      terabyte: "placa-de-video rtx 5070 12gb"
+      pichau: "placa-de-video rtx-5070-12gb"
+    match:
+      required_memory_gb: 12
+      require_all:
+        - "rtx\\s*5070"
+      reject_any:
+        # The 5070 Ti is a different, pricier card sharing the prefix.
+        - "rtx\\s*5070\\s*ti"
+        - "usado|semi ?novo|open ?box|recondicionado"
+        - "pc gamer|computador|notebook|kit upgrade"
+        - "suporte|cabo|adaptador|riser|water ?cooler"
+
   # ── PC build watchlist ────────────────────────────────────────────────
   # Part identity only, no brand-specific variants: any card that is an RTX
-  # 5070 12GB counts, not just the MSI Shadow. Targets are 10% below the Pix
-  # prices found on 2026-08-12, so an alert means a genuine improvement on
-  # what was already available rather than a restatement of it.
+  # 5070 12GB counts, not just the MSI Shadow one the build was priced with.
+  # Targets started 10% below the Pix prices found on 2026-08-12, so an alert
+  # means a genuine improvement on what was already available rather than a
+  # restatement of it.
   #
   # Queries still carry a model code where one exists: sitemap stores match
   # these tokens against the product URL, and every extra candidate is a page
@@ -166,25 +186,6 @@ products:
       reject_any:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook|kit upgrade"
-
-  - id: rtx-5070-12gb
-    name: "RTX 5070 12GB"
-    max_price: 4139.99
-    alert_levels: { good: 4139.99, excellent: 3933, buy_now: 3726 }
-    queries:
-      kabum: "rtx 5070 12gb"
-      terabyte: "placa-de-video rtx 5070 12gb"
-      pichau: "placa-de-video rtx-5070-12gb"
-    match:
-      required_memory_gb: 12
-      require_all:
-        - "rtx\\s*5070"
-      reject_any:
-        # The 5070 Ti is a different, pricier card sharing the prefix.
-        - "rtx\\s*5070\\s*ti"
-        - "usado|semi ?novo|open ?box|recondicionado"
-        - "pc gamer|computador|notebook|kit upgrade"
-        - "suporte|cabo|adaptador|riser|water ?cooler"
 
   - id: ssd-nm790-1tb
     name: "SSD NM790 1TB"
