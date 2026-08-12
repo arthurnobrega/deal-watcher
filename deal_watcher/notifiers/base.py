@@ -31,8 +31,13 @@ class Notifier(ABC):
         """Deliver one alert. Raises :class:`NotifierError` on failure."""
 
     @abstractmethod
-    def send_text(self, text: str) -> None:
-        """Deliver a plain message, used by `deal-watcher test-notification`."""
+    def send_text(self, text: str, monospace: bool = False) -> None:
+        """Deliver a plain message.
+
+        ``monospace`` asks the channel to preserve alignment, which a table
+        needs and a sentence does not. Channels that cannot honour it should
+        send the text unchanged rather than fail.
+        """
 
     def close(self) -> None:  # noqa: B027 - optional hook, not every channel holds resources
         """Release any transport resources."""

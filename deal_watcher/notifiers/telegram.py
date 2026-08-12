@@ -42,15 +42,24 @@ class TelegramNotifier(Notifier):
     def send(self, alert: Alert) -> None:
         self.send_text(render_alert(alert))
 
-    def send_text(self, text: str) -> None:
+    def send_text(self, text: str, monospace: bool = False) -> None:
+        payload: dict[str, object] = {
+            "chat_id": self._chat_id,
+            "disable_web_page_preview": False,
+        }
+        if monospace:
+            # <pre> keeps column alignment on a phone, where a proportional
+            # font would turn a table into noise.
+            escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            payload["text"] = f"<pre>{escaped}</pre>"
+            payload["parse_mode"] = "HTML"
+        else:
+            payload["text"] = text
+
         try:
             response = self._client.post(
                 f"{self._config.api_base}/bot{self._token}/sendMessage",
-                json={
-                    "chat_id": self._chat_id,
-                    "text": text,
-                    "disable_web_page_preview": False,
-                },
+                json=payload,
             )
         except httpx.HTTPError as exc:
             # str(exc) can include the request URL, which carries the token.

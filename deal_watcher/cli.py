@@ -3,6 +3,7 @@
     deal-watcher check              run one monitoring cycle
     deal-watcher run                loop forever, one cycle per interval
     deal-watcher test-notification  prove the Telegram wiring works
+    deal-watcher report             cheapest price per product, as a table
     deal-watcher history            recent prices from the local database
     deal-watcher health             is the service alive and doing its job?
     deal-watcher stores             which adapters exist and what they need
@@ -18,6 +19,7 @@ import logging
 import sys
 import time
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from . import __version__
@@ -61,6 +63,18 @@ def build_parser() -> argparse.ArgumentParser:
     history = sub.add_parser("history", help="show recent observed prices")
     history.add_argument("--product", default=None, help="filter by product name")
     history.add_argument("--limit", type=int, default=20)
+
+    report = sub.add_parser("report", help="cheapest current price per product, as a table")
+    report.add_argument(
+        "--send",
+        action="store_true",
+        help="also send the table through every configured notifier",
+    )
+    report.add_argument(
+        "--all-stores",
+        action="store_true",
+        help="show every store's price, not just the cheapest",
+    )
 
     sub.add_parser("health", help="report whether the monitor is running and recent")
     sub.add_parser("stores", help="list available store adapters")
@@ -173,6 +187,98 @@ def cmd_history(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    """Cheapest in-stock price per product, with the build total.
+
+    Reads recorded history rather than hitting the stores, so it is instant and
+    works offline. Run `deal-watcher check` first if you want it fresher.
+    """
+    config = _load(args)
+
+    # A phone renders a narrower table than a terminal does, so the sent
+    # version drops the store column and truncates long names.
+    width = 24 if args.send else 34
+    header = f"{'PRODUCT':<{width}}  {'TARGET':>12}  {'BEST NOW':>12}  {'VS TARGET':>12}"
+    if not args.send:
+        header += "  STORE"
+    lines = [header, "-" * len(header)]
+
+    total_target = Decimal("0")
+    total_best = Decimal("0")
+    missing = 0
+
+    with Storage(config.database) as storage:
+        for product in config.products:
+            best = storage.best_offer(product.name)
+            label = product.name
+            if len(label) > width:
+                label = label[: width - 1] + "…"
+
+            if best is None:
+                missing += 1
+                line = f"{label:<{width}}  {format_brl(product.max_price):>12}  {'-':>12}  {'':>12}"
+                if not args.send:
+                    line += "  no data"
+            else:
+                difference = best.effective_price - product.max_price
+                delta = ("+" if difference > 0 else "") + format_brl(difference)
+                total_target += product.max_price
+                total_best += best.effective_price
+                line = (
+                    f"{label:<{width}}  {format_brl(product.max_price):>12}  "
+                    f"{format_brl(best.effective_price):>12}  {delta:>12}"
+                )
+                if not args.send:
+                    hours = (datetime.now(UTC) - best.seen_at).total_seconds() / 3600
+                    age = f"{hours:.0f}h ago" if hours >= 1 else "just now"
+                    line += f"  {best.store} ({age})"
+            lines.append(line)
+
+            if args.all_stores and best is not None:
+                for entry in storage.latest_offers(product.name):
+                    if not entry.available:
+                        continue
+                    name = f"  {entry.name}"[:width]
+                    lines.append(
+                        f"{name:<{width}}  {'':>12}  "
+                        f"{format_brl(entry.effective_price):>12}  {'':>12}"
+                        + ("" if args.send else f"  {entry.store}")
+                    )
+
+    lines.append("-" * len(header))
+    difference = total_best - total_target
+    delta_total = ("+" if difference > 0 else "") + format_brl(difference)
+    lines.append(
+        f"{'TOTAL':<{width}}  {format_brl(total_target):>12}  "
+        f"{format_brl(total_best):>12}  {delta_total:>12}"
+    )
+    if missing:
+        lines += [
+            "",
+            f"{missing} of {len(config.products)} products have no in-stock price yet;",
+            "both totals exclude them so the comparison stays honest.",
+        ]
+
+    table = "\n".join(lines)
+    print(table)
+
+    if args.send:
+        heading = f"📊 deal-watcher — {datetime.now().strftime('%d/%m/%Y')}"
+        failures = 0
+        for notifier in _build_notifiers(config, required=True):
+            try:
+                notifier.send_text(f"{heading}\n\n{table}", monospace=True)
+                log.info("daily report sent via %s", notifier.name)
+            except NotifierError as exc:
+                failures += 1
+                log.error("%s failed: %s", notifier.name, exc)
+            finally:
+                notifier.close()
+        if failures:
+            return EXIT_ERROR
+    return EXIT_OK
+
+
 def cmd_health(args: argparse.Namespace) -> int:
     config = _load(args)
     with Storage(config.database) as storage:
@@ -206,6 +312,7 @@ _COMMANDS = {
     "run": cmd_run,
     "test-notification": cmd_test_notification,
     "history": cmd_history,
+    "report": cmd_report,
     "health": cmd_health,
     "stores": cmd_stores,
 }

@@ -198,6 +198,43 @@ class Storage:
             for row in rows
         )
 
+    def latest_offers(self, product: str) -> tuple[HistoryEntry, ...]:
+        """The most recent observation of each distinct offer for a product.
+
+        Price history is append-only, so "what does this cost now" means the
+        newest row per offer, not the newest row overall.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT * FROM (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY offer_key ORDER BY seen_at DESC, id DESC
+                ) AS rank
+                FROM price_history WHERE product = ?
+            ) WHERE rank = 1
+            ORDER BY CAST(effective_price AS REAL) ASC
+            """,
+            (product,),
+        ).fetchall()
+        return tuple(
+            HistoryEntry(
+                product=row["product"],
+                store=row["store"],
+                name=row["name"],
+                url=row["url"],
+                price=Decimal(row["price"]),
+                effective_price=Decimal(row["effective_price"]),
+                available=bool(row["available"]),
+                seen_at=_parse_iso(row["seen_at"]),
+            )
+            for row in rows
+        )
+
+    def best_offer(self, product: str) -> HistoryEntry | None:
+        """Cheapest in-stock offer from the latest observation of each offer."""
+        in_stock = [entry for entry in self.latest_offers(product) if entry.available]
+        return min(in_stock, key=lambda entry: entry.effective_price, default=None)
+
     def lowest_price(self, product: str) -> Decimal | None:
         """Cheapest price ever recorded for a product, across stores."""
         rows = self._conn.execute(

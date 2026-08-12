@@ -1,0 +1,14 @@
+[Unit]
+Description=Send the deal-watcher price table once a day
+Documentation=https://github.com/arthurnobrega/deal-watcher
+
+[Timer]
+# 09:00 local time. The monitor runs every 30 minutes, so by then the table
+# is at most half an hour stale.
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+RandomizedDelaySec=5min
+Unit=deal-watcher-report.service
+
+[Install]
+WantedBy=timers.target

@@ -82,12 +82,16 @@ sed -e "s#@APP_DIR@#$REPO_DIR#g" "$REPO_DIR/deploy/user/deal-watcher-wrapper.sh"
 chmod 755 "$HOME/.local/bin/deal-watcher"
 
 log "installing user units"
-sed "s#@APP_DIR@#$REPO_DIR#g" "$REPO_DIR/deploy/user/deal-watcher.service" \
-  >"$UNIT_DIR/deal-watcher.service"
-install -m 644 "$REPO_DIR/deploy/user/deal-watcher.timer" "$UNIT_DIR/deal-watcher.timer"
+for unit in deal-watcher deal-watcher-report; do
+  sed "s#@APP_DIR@#$REPO_DIR#g" "$REPO_DIR/deploy/user/$unit.service" \
+    >"$UNIT_DIR/$unit.service"
+  install -m 644 "$REPO_DIR/deploy/user/$unit.timer" "$UNIT_DIR/$unit.timer"
+done
 
 systemctl --user daemon-reload
 systemctl --user enable --now deal-watcher.timer
+# The daily table: reads the database only, contacts no store.
+systemctl --user enable --now deal-watcher-report.timer
 
 # Without lingering, user timers stop when you log out.
 if ! loginctl show-user "$USER" -p Linger --value 2>/dev/null | grep -q yes; then

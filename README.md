@@ -226,6 +226,9 @@ deal-watcher check                 # one cycle, send alerts
 deal-watcher check --dry-run       # one cycle, send nothing, remember nothing
 deal-watcher run                   # loop forever (use only without a timer)
 deal-watcher test-notification     # prove the notification wiring
+deal-watcher report                # cheapest price per product, as a table
+deal-watcher report --send         # ...and send it to Telegram
+deal-watcher report --all-stores   # every store's price, not just the cheapest
 deal-watcher history --limit 20    # recent prices, plus the lowest ever seen
 deal-watcher health                # exit 0 healthy, 2 stale, 1 misconfigured
 deal-watcher stores                # which adapters exist and what they need
@@ -284,6 +287,33 @@ DEBUG KaBuM!: rejected 'Placa de Vídeo RTX 5060 Ti GAMING OC 8G...' -- mentions
 
 A live cycle over 158 offers from three stores produced 12 matches and zero
 false positives.
+
+---
+
+## The daily table
+
+Alerts tell you when something crosses a threshold. The report tells you where
+everything stands right now:
+
+```text
+PRODUCT                                 TARGET      BEST NOW     VS TARGET  STORE
+--------------------------------------------------------------------------------
+RTX 5060 Ti 16GB                   R$ 4.000,00   R$ 3.899,99    R$ -100,01  TerabyteShop (just now)
+Intel Core Ultra 5 245KF             R$ 656,99     R$ 729,00     +R$ 72,01  KaBuM! (just now)
+...
+--------------------------------------------------------------------------------
+TOTAL                             R$ 14.331,95  R$ 16.470,71  +R$ 2.138,76
+```
+
+It reads the local database rather than the stores, so it is instant, works
+offline, and cannot be broken by a store being down.
+
+The totals only count products that have an in-stock price, and say how many
+they skipped. Summing every target against a partial set of prices would
+produce a confident, meaningless number.
+
+`--send` posts it to every configured notifier as a monospace block, and
+`deploy/user/deal-watcher-report.timer` does that once a day at 09:00.
 
 ---
 

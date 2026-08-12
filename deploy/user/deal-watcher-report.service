@@ -1,0 +1,18 @@
+[Unit]
+Description=deal-watcher daily price report
+Documentation=https://github.com/arthurnobrega/deal-watcher
+
+[Service]
+Type=oneshot
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=%h/.config/deal-watcher/deal-watcher.env
+Environment=PLAYWRIGHT_BROWSERS_PATH=%h/.cache/ms-playwright
+
+# Reads the local database only -- no store is contacted, so this is instant
+# and works even if every store is down.
+ExecStart=@APP_DIR@/.venv/bin/deal-watcher --config %h/.config/deal-watcher/config.yaml report --send
+
+Nice=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deal-watcher-report
