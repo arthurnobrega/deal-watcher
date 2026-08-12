@@ -1,0 +1,109 @@
+name: Monitor
+
+# Runs the price check on GitHub's runners instead of a server.
+#
+# The catch this workflow has to solve: a runner keeps nothing between runs, so
+# the SQLite file holding price history *and* the "already told you about this
+# one" state has to be carried in and out. It lives on an orphan `state` branch
+# and is committed back after every cycle. Without that, every run would look
+# like the first one and re-send the same alert forever.
+#
+# Committing state also counts as repository activity, which stops GitHub
+# disabling the schedule after 60 days of quiet.
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub queues scheduled runs best-effort, so treat this
+    # as "roughly every 15-30 minutes", not a guarantee.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Find deals but send nothing"
+        type: boolean
+        default: false
+      log_level:
+        description: "Log level"
+        type: choice
+        options: [INFO, DEBUG]
+        default: INFO
+
+permissions:
+  contents: write # only to push the state branch
+
+# Never let two cycles race on the same state branch.
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[browser]'
+
+      - name: Cache Chromium
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
+
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+
+      - name: Restore state
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads origin state >/dev/null 2>&1; then
+            git fetch --depth 1 origin state
+            git show origin/state:deal-watcher.db > data/deal-watcher.db
+            echo "restored $(stat -c%s data/deal-watcher.db) bytes of state"
+          else
+            echo "no state branch yet; starting fresh"
+          fi
+
+      - name: Check prices
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          deal-watcher --log-level ${{ inputs.log_level || 'INFO' }} check \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Show recent prices
+        if: always()
+        run: deal-watcher history --limit 15 || true
+
+      - name: Save state
+        # Runs even when a store failed, so a partial cycle still records what
+        # it learned and does not re-alert next time.
+        if: always() && inputs.dry_run != true
+        run: |
+          set -euo pipefail
+          [ -f data/deal-watcher.db ] || exit 0
+          git config user.name "deal-watcher[bot]"
+          git config user.email "deal-watcher@users.noreply.github.com"
+          rm -rf /tmp/state && mkdir /tmp/state
+          cp data/deal-watcher.db /tmp/state/
+          cd /tmp/state
+          git init -q -b state
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git add deal-watcher.db
+          git commit -q -m "chore: price state $(date -u +%FT%TZ) [skip ci]"
+          # Single-commit orphan branch: state is a snapshot, not a history to
+          # grow forever inside the repo.
+          git push -q --force origin state
+          echo "state saved"
