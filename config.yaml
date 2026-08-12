@@ -63,8 +63,6 @@ products:
       excellent: 3700  # 🔥 EXCELLENT
       buy_now: 3400    # 🚨 BUY NOW
 
-    # Search term per store. Pichau narrows sitemap URLs by these tokens, so a
-    # more specific term there means far fewer product pages to fetch.
     # Sitemap-driven stores match these tokens against the product URL, so a
     # specific query means fewer pages fetched. "placa-de-video" is what keeps
     # prebuilt gaming PCs (which also mention "rtx 5060 ti 16gb") out.
@@ -88,14 +86,19 @@ products:
         - "suporte|cabo|adaptador|riser|water ?cooler|bracket|espelho"
 
   # ── PC build watchlist ────────────────────────────────────────────────
-  # Targets are the Pix prices seen on 2026-08-12, so an alert means "at or
-  # better than what you already found". Queries carry the model code where
-  # one exists: sitemap stores match these tokens against the product URL, so
-  # a precise query is the difference between 2 page loads and 20.
+  # Part identity only, no brand-specific variants: any card that is an RTX
+  # 5070 12GB counts, not just the MSI Shadow. Targets are 10% below the Pix
+  # prices found on 2026-08-12, so an alert means a genuine improvement on
+  # what was already available rather than a restatement of it.
+  #
+  # Queries still carry a model code where one exists: sitemap stores match
+  # these tokens against the product URL, and every extra candidate is a page
+  # load. A loose *name* and a tight *query* are not in conflict -- the query
+  # decides what is worth fetching, `match` decides what counts.
 
-  - name: "CPU Intel Core Ultra 5 245KF"
-    max_price: 729.99
-    alert_levels: { good: 729.99, excellent: 690, buy_now: 650 }
+  - name: "Intel Core Ultra 5 245KF"
+    max_price: 656.99
+    alert_levels: { good: 656.99, excellent: 624, buy_now: 591 }
     queries:
       kabum: "core ultra 5 245kf"
       terabyte: "processador 245kf"
@@ -108,25 +111,24 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado|vitrine"
         - "pc gamer|computador|notebook|kit upgrade"
 
-  - name: "Cooler Thermalright Assassin Spirit 120 EVO ARGB"
-    max_price: 159.99
-    alert_levels: { good: 159.99, excellent: 145, buy_now: 130 }
+  - name: "Cooler Assassin Spirit 120 EVO"
+    max_price: 143.99
+    alert_levels: { good: 143.99, excellent: 137, buy_now: 130 }
     queries:
-      kabum: "thermalright assassin spirit 120 evo argb"
+      kabum: "thermalright assassin spirit 120 evo"
       terabyte: "assassin spirit 120 evo"
       pichau: "assassin spirit 120 evo"
     match:
       require_all:
         - "assassin\\s*spirit\\s*120"
         - "evo"
-        - "argb"
       reject_any:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|kit upgrade"
 
-  - name: "Placa-mãe Gigabyte B860 Eagle WIFI6E"
-    max_price: 1389.99
-    alert_levels: { good: 1389.99, excellent: 1300, buy_now: 1200 }
+  - name: "Placa-mãe B860 Eagle WIFI6E"
+    max_price: 1250.99
+    alert_levels: { good: 1250.99, excellent: 1188, buy_now: 1126 }
     queries:
       kabum: "gigabyte b860 eagle wifi6e"
       terabyte: "b860 eagle"
@@ -137,16 +139,16 @@ products:
         - "eagle"
         - "wifi\\s*6e"
       reject_any:
-        # B860M is the micro-ATX board, a different product with a similar name.
+        # B860M is the micro-ATX board: a different product, similar name.
         - "b860m"
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|kit upgrade"
 
-  - name: "Memória Kingston Fury Beast 32GB DDR5 6000 C30"
-    max_price: 4599.99
-    alert_levels: { good: 4599.99, excellent: 4300, buy_now: 4000 }
+  - name: "RAM Fury Beast 32GB DDR5 6000"
+    max_price: 4139.99
+    alert_levels: { good: 4139.99, excellent: 3933, buy_now: 3726 }
     queries:
-      kabum: "kingston fury beast 32gb ddr5 6000 c30"
+      kabum: "kingston fury beast 32gb ddr5 6000"
       terabyte: "kf560c30bwek2"
       pichau: "kf560c30bwek2"
     match:
@@ -159,28 +161,27 @@ products:
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook|kit upgrade"
 
-  - name: "GPU MSI RTX 5070 Shadow 2X OC 12GB"
-    max_price: 4599.99
-    alert_levels: { good: 4599.99, excellent: 4300, buy_now: 4000 }
+  - name: "RTX 5070 12GB"
+    max_price: 4139.99
+    alert_levels: { good: 4139.99, excellent: 3933, buy_now: 3726 }
     queries:
-      kabum: "msi rtx 5070 shadow 2x oc 12gb"
-      terabyte: "g5070-12s2c"
-      pichau: "g5070-12s2c"
+      kabum: "rtx 5070 12gb"
+      terabyte: "placa-de-video rtx 5070 12gb"
+      pichau: "placa-de-video rtx-5070-12gb"
     match:
       required_memory_gb: 12
       require_all:
         - "rtx\\s*5070"
-        - "shadow"
       reject_any:
-        # The 5070 Ti is a different, pricier card that shares the prefix.
+        # The 5070 Ti is a different, pricier card sharing the prefix.
         - "rtx\\s*5070\\s*ti"
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook|kit upgrade"
-        - "suporte|cabo|adaptador|riser"
+        - "suporte|cabo|adaptador|riser|water ?cooler"
 
-  - name: "SSD Lexar NM790 1TB"
-    max_price: 1299.99
-    alert_levels: { good: 1299.99, excellent: 1200, buy_now: 1100 }
+  - name: "SSD NM790 1TB"
+    max_price: 1169.99
+    alert_levels: { good: 1169.99, excellent: 1111, buy_now: 1053 }
     queries:
       kabum: "ssd lexar nm790 1tb"
       terabyte: "nm790 1tb"
@@ -190,15 +191,15 @@ products:
         - "nm790"
         - "1\\s*tb"
       reject_any:
-        # Same family, different capacities.
+        # Same family, other capacities -- and NV790 is a different drive.
         - "\\b(2|4)\\s*tb\\b"
         - "nv790"
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador|notebook"
 
-  - name: "Gabinete Corsair 3000D Airflow"
-    max_price: 439.99
-    alert_levels: { good: 439.99, excellent: 400, buy_now: 360 }
+  - name: "Gabinete 3000D Airflow"
+    max_price: 395.99
+    alert_levels: { good: 395.99, excellent: 376, buy_now: 356 }
     queries:
       kabum: "gabinete corsair 3000d airflow"
       terabyte: "gabinete 3000d airflow"
@@ -208,14 +209,12 @@ products:
         - "3000d"
         - "airflow"
       reject_any:
-        # The RGB edition is a different SKU at a different price.
-        - "\\brgb\\b"
         - "usado|semi ?novo|open ?box|recondicionado"
         - "pc gamer|computador"
 
-  - name: "Fonte Corsair RM750e 750W"
-    max_price: 649.99
-    alert_levels: { good: 649.99, excellent: 600, buy_now: 550 }
+  - name: "Fonte RM750e 750W"
+    max_price: 584.99
+    alert_levels: { good: 584.99, excellent: 556, buy_now: 526 }
     queries:
       kabum: "fonte corsair rm750e 750w"
       terabyte: "fonte rm750e"
