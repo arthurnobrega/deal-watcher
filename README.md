@@ -340,9 +340,16 @@ API, so this adapter asks for JSON: no interstitial, no browser, no layout to
 break. It needs credentials, which are free:
 
 1. Register an application at
-   [developers.mercadolivre.com.br](https://developers.mercadolivre.com.br/)
-2. Put the client id and secret in your env file (never in config, never in git)
-3. Set `stores.mercadolivre.enabled: true`
+   [developers.mercadolivre.com.br](https://developers.mercadolivre.com.br/).
+   Grant only the **Usuários** permission and subscribe to no topics — search
+   needs no account access, and the redirect URI is never visited, so any
+   HTTPS URL you own will do.
+2. Run the helper, which stores the credentials, proves they work against the
+   real search endpoint, and enables the store:
+
+   ```bash
+   ./deploy/setup-mercadolivre.sh --user   # or: sudo ./deploy/setup-mercadolivre.sh
+   ```
 
 Worth knowing before you rely on it: it is a *marketplace*. Titles are written
 by sellers rather than manufacturers, and one search returns new, used,
