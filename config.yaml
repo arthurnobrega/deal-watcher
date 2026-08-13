@@ -3,10 +3,11 @@
 # No secrets live here. The Telegram token and chat id are read from the
 # environment variables named under `notifiers.telegram`.
 
-# A full pass over 9 products now takes ~11 minutes, because two of the three
-# stores cost one page load per candidate. Thirty minutes keeps the machine
-# mostly idle; drop it back to 900 if you trim the watchlist.
-interval_seconds: 1800         # 30 minutes
+# A full pass costs one page load per candidate on the sitemap-driven stores,
+# so it grows with the watchlist: nine products across all three stores took
+# 30 minutes, which on a 30-minute timer means running non-stop. Most products
+# now skip Pichau (see `stores:` below), and the interval leaves headroom.
+interval_seconds: 2700         # 45 minutes
 health_max_age_seconds: 3600   # `health` fails if no cycle finished in an hour
 database: data/deal-watcher.db
 log_level: INFO
@@ -68,6 +69,10 @@ products:
     # Sitemap-driven stores match these tokens against the product URL, so a
     # specific query means fewer pages fetched. "placa-de-video" is what keeps
     # prebuilt gaming PCs (which also mention "rtx 5060 ti 16gb") out.
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "rtx 5060 ti 16gb"
       terabyte: "placa-de-video rtx 5060 ti 16gb"
@@ -91,6 +96,10 @@ products:
     name: "RTX 5070 12GB"
     max_price: 4400
     alert_levels: { good: 4400, excellent: 4200, buy_now: 4000 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "rtx 5070 12gb"
       terabyte: "placa-de-video rtx 5070 12gb"
@@ -122,6 +131,10 @@ products:
     name: "Intel Core Ultra 5 245KF"
     max_price: 656.99
     alert_levels: { good: 656.99, excellent: 624, buy_now: 591 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "core ultra 5 245kf"
       terabyte: "processador 245kf"
@@ -138,6 +151,10 @@ products:
     name: "Cooler Assassin Spirit 120 EVO"
     max_price: 143.99
     alert_levels: { good: 143.99, excellent: 137, buy_now: 130 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "thermalright assassin spirit 120 evo"
       terabyte: "assassin spirit 120 evo"
@@ -154,6 +171,10 @@ products:
     name: "Placa-mãe B860 Eagle WIFI6E"
     max_price: 1250.99
     alert_levels: { good: 1250.99, excellent: 1188, buy_now: 1126 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "gigabyte b860 eagle wifi6e"
       terabyte: "b860 eagle"
@@ -210,6 +231,10 @@ products:
     name: "Gabinete 3000D Airflow"
     max_price: 395.99
     alert_levels: { good: 395.99, excellent: 376, buy_now: 356 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "gabinete corsair 3000d airflow"
       terabyte: "gabinete 3000d airflow"
@@ -226,6 +251,10 @@ products:
     name: "Fonte RM750e 750W"
     max_price: 584.99
     alert_levels: { good: 584.99, excellent: 556, buy_now: 526 }
+    # Skips Pichau: KaBuM and Terabyte both carry this, and Pichau costs
+    # one browser page load per candidate for prices that are never the
+    # cheapest. Add it back if that stops being true.
+    stores: [kabum, terabyte]
     queries:
       kabum: "fonte corsair rm750e 750w"
       terabyte: "fonte rm750e"
