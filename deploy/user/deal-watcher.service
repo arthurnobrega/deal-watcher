@@ -13,7 +13,11 @@ Environment=PLAYWRIGHT_BROWSERS_PATH=%h/.cache/ms-playwright
 
 ExecStart=@APP_DIR@/.venv/bin/deal-watcher --config %h/.config/deal-watcher/config.yaml check
 
-TimeoutStartSec=600
+# A cycle grows with the watchlist: two of the three stores cost one page load
+# per candidate, so nine products take ~13 minutes. This must stay comfortably
+# above that, or systemd kills the run partway and the products at the end of
+# the config are silently never checked.
+TimeoutStartSec=3600
 # A desktop has better things to do than lose a core to a price check.
 Nice=15
 IOSchedulingClass=idle

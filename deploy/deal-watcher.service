@@ -24,7 +24,11 @@ Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/deal-watcher/browsers
 
 ExecStart=/opt/deal-watcher/.venv/bin/deal-watcher --config /etc/deal-watcher/config.yaml check
 
-TimeoutStartSec=600
+# A cycle grows with the watchlist: two of the three stores cost one page load
+# per candidate, so nine products take ~13 minutes. This must stay comfortably
+# above that, or systemd kills the run partway and the products at the end of
+# the config are silently never checked.
+TimeoutStartSec=3600
 Nice=10
 
 # --- Hardening. The monitor only needs outbound HTTPS and its own data dir. ---
