@@ -20,6 +20,11 @@ EnvironmentFile=/etc/deal-watcher/deal-watcher.env
 # and a fixed browser location, since /opt is read-only under ProtectSystem.
 Environment=HOME=/var/lib/deal-watcher
 Environment=XDG_CACHE_HOME=/var/lib/deal-watcher/.cache
+# Without this, Python block-buffers stdout when it is not a terminal, so a
+# 13-minute cycle logs nothing until it exits and `journalctl -f` shows an
+# idle screen while the thing is working.
+Environment=PYTHONUNBUFFERED=1
+
 Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/deal-watcher/browsers
 
 ExecStart=/opt/deal-watcher/.venv/bin/deal-watcher --config /etc/deal-watcher/config.yaml check

@@ -9,6 +9,11 @@ WorkingDirectory=@APP_DIR@
 
 # Credentials, 0600 and owned by you. Never in git.
 EnvironmentFile=%h/.config/deal-watcher/deal-watcher.env
+# Without this, Python block-buffers stdout when it is not a terminal, so a
+# 13-minute cycle logs nothing until it exits and `journalctl -f` shows an
+# idle screen while the thing is working.
+Environment=PYTHONUNBUFFERED=1
+
 Environment=PLAYWRIGHT_BROWSERS_PATH=%h/.cache/ms-playwright
 
 ExecStart=@APP_DIR@/.venv/bin/deal-watcher --config %h/.config/deal-watcher/config.yaml check

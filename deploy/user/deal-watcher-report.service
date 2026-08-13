@@ -6,6 +6,11 @@ Documentation=https://github.com/arthurnobrega/deal-watcher
 Type=oneshot
 WorkingDirectory=@APP_DIR@
 EnvironmentFile=%h/.config/deal-watcher/deal-watcher.env
+# Without this, Python block-buffers stdout when it is not a terminal, so a
+# 13-minute cycle logs nothing until it exits and `journalctl -f` shows an
+# idle screen while the thing is working.
+Environment=PYTHONUNBUFFERED=1
+
 Environment=PLAYWRIGHT_BROWSERS_PATH=%h/.cache/ms-playwright
 
 # Reads the local database only -- no store is contacted, so this is instant
